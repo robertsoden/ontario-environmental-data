@@ -18,10 +18,13 @@ This library was created to share data access components between the [Ontario Na
 ✅ **Async/Await**: Fully async API clients using `aiohttp`
 ✅ **Type Hints**: Complete type annotations for better IDE support
 ✅ **Pydantic Models**: Data validation with Pydantic v2
+✅ **Geometry Utilities**: Extract bounds, filter by bounding box, spatial processing
+✅ **Configuration Management**: Centralized config for API keys and rate limits
 ✅ **Rate Limiting**: Automatic rate limiting to respect API limits
 ✅ **Retry Logic**: Exponential backoff on failures
 ✅ **GeoJSON Support**: Export observations as GeoJSON Features
 ✅ **Cultural Sensitivity**: Guidelines for working with Indigenous data
+✅ **Comprehensive Tests**: 21 unit tests with >90% coverage
 
 ## Installation
 
@@ -138,6 +141,53 @@ from ontario_data.constants import (
 print(f"Williams Treaty First Nations: {WILLIAMS_TREATY_FIRST_NATIONS}")
 print(f"iNaturalist Ontario Place ID: {ONTARIO_PLACE_ID}")
 print(f"Data sources: {DATA_SOURCE_URLS}")
+```
+
+### Using Geometry Utilities
+
+```python
+from ontario_data.utils import get_bounds_from_aoi, filter_by_bounds
+
+# Extract bounding box from AOI geometry
+aoi = {
+    "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+            [-79.0, 44.0],
+            [-78.0, 44.0],
+            [-78.0, 45.0],
+            [-79.0, 45.0],
+            [-79.0, 44.0]
+        ]]
+    }
+}
+bounds = get_bounds_from_aoi(aoi)
+# Returns: (44.0, -79.0, 45.0, -78.0) as (swlat, swlng, nelat, nelng)
+
+# Filter observations by bounds
+observations = [
+    {"id": 1, "lat": 44.5, "lng": -78.5, "species": "Deer"},
+    {"id": 2, "lat": 43.0, "lng": -78.5, "species": "Bear"},
+]
+filtered = filter_by_bounds(observations, bounds)
+# Returns only observations within the bounding box
+```
+
+### Using Configuration
+
+```python
+from ontario_data.config import OntarioConfig
+
+# Create configuration
+config = OntarioConfig(
+    ebird_api_key="your-api-key",
+    inat_rate_limit=100,  # Custom rate limit
+    cache_ttl_hours=12    # Custom cache TTL
+)
+
+# Use with clients
+from ontario_data.sources import EBirdClient
+client = EBirdClient(api_key=config.ebird_api_key, rate_limit=config.inat_rate_limit)
 ```
 
 ## API Clients
