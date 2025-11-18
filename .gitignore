@@ -62,5 +62,6 @@ site/
 *.csv
 *.json
 *.geojson
-data/
+!data/processed/boundaries/williams_treaty.geojson
 !examples/data/
+data/
