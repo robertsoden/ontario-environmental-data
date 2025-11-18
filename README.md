@@ -6,10 +6,11 @@ A Python library for accessing Ontario-specific environmental and biodiversity d
 
 The `ontario-environmental-data` library provides clean, Pythonic interfaces to Ontario environmental data APIs including:
 
-- **Biodiversity Data**: iNaturalist, eBird, GBIF
-- **Water Quality**: DataStream, PWQMN (planned)
-- **Forest Data**: Ontario FRI (planned)
-- **Conservation Areas**: Ontario parks, conservation authorities
+- **Biodiversity Data**: iNaturalist, eBird
+- **Indigenous Data**: Water advisories, First Nations reserve boundaries
+- **Protected Areas**: Ontario provincial parks, conservation authorities
+- **Fire Data**: CWFIS fire perimeters and fuel types
+- **Future**: Water quality (DataStream, PWQMN), satellite data (NDVI, land cover)
 
 This library was created to share data access components between the [Ontario Nature Watch](https://github.com/robertsoden/onw) LLM agent and the [Williams Treaties](https://github.com/robertsoden/williams-treaties) mapping project.
 
@@ -317,20 +318,26 @@ For questions or issues:
 
 ## Roadmap
 
-### Phase 1 (Current - v0.1.0)
+### Phase 1 (v0.1.0) - COMPLETE
 ✅ iNaturalist client
 ✅ eBird client
-✅ Data models
+✅ Data models (biodiversity)
 ✅ Constants
+✅ Geometry utilities
 
-### Phase 2 (Planned - v0.2.0)
-⏳ GBIF client
-⏳ DataStream water quality
-⏳ Spatial filtering utilities
-⏳ Caching layer
+### Phase 2 (v0.2.0) - COMPLETE
+✅ **WaterAdvisoriesClient** - Indigenous Services Canada drinking water advisories
+✅ **StatisticsCanadaWFSClient** - First Nations reserve boundaries via WFS
+✅ **CWFISClient** - Fire perimeters from Canadian Wildland Fire Information System
+✅ **OntarioGeoHubClient** - Provincial parks and conservation authorities
+✅ New data models: WaterAdvisory, ReserveBoundary, FirePerimeter, ProtectedArea
+✅ GeoDataFrame support
+✅ Williams Treaty First Nations support
 
 ### Phase 3 (Planned - v0.3.0)
-⏳ Ontario FRI forest data
-⏳ Conservation area boundaries
-⏳ Indigenous Services Canada data
-⏳ PostGIS integration utilities
+⏳ GBIF client for biodiversity
+⏳ DataStream water quality client
+⏳ PWQMN water quality client
+⏳ Comprehensive test suite for all clients
+⏳ Caching layer
+⏳ Satellite data support (NDVI, land cover, DEM)
