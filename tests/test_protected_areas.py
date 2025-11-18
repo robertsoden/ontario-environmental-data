@@ -1,11 +1,12 @@
 """Tests for protected areas data source clients."""
 
 import json
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import geopandas as gpd
 import pytest
 
+from ontario_data.sources.base import DataSourceError
 from ontario_data.sources.protected_areas import OntarioGeoHubClient
 
 
@@ -30,14 +31,16 @@ class TestOntarioGeoHubClient:
                     },
                     "geometry": {
                         "type": "Polygon",
-                        "coordinates": [[
-                            [-78.3, 44.8],
-                            [-78.1, 44.8],
-                            [-78.1, 44.9],
-                            [-78.3, 44.9],
-                            [-78.3, 44.8]
-                        ]]
-                    }
+                        "coordinates": [
+                            [
+                                [-78.3, 44.8],
+                                [-78.1, 44.8],
+                                [-78.1, 44.9],
+                                [-78.3, 44.9],
+                                [-78.3, 44.8],
+                            ]
+                        ],
+                    },
                 },
                 {
                     "type": "Feature",
@@ -51,16 +54,18 @@ class TestOntarioGeoHubClient:
                     },
                     "geometry": {
                         "type": "Polygon",
-                        "coordinates": [[
-                            [-78.2, 44.9],
-                            [-78.0, 44.9],
-                            [-78.0, 45.0],
-                            [-78.2, 45.0],
-                            [-78.2, 44.9]
-                        ]]
-                    }
-                }
-            ]
+                        "coordinates": [
+                            [
+                                [-78.2, 44.9],
+                                [-78.0, 44.9],
+                                [-78.0, 45.0],
+                                [-78.2, 45.0],
+                                [-78.2, 44.9],
+                            ]
+                        ],
+                    },
+                },
+            ],
         }
 
     @pytest.fixture
@@ -77,16 +82,18 @@ class TestOntarioGeoHubClient:
                     },
                     "geometry": {
                         "type": "Polygon",
-                        "coordinates": [[
-                            [-78.5, 44.5],
-                            [-78.0, 44.5],
-                            [-78.0, 45.0],
-                            [-78.5, 45.0],
-                            [-78.5, 44.5]
-                        ]]
-                    }
+                        "coordinates": [
+                            [
+                                [-78.5, 44.5],
+                                [-78.0, 44.5],
+                                [-78.0, 45.0],
+                                [-78.5, 45.0],
+                                [-78.5, 44.5],
+                            ]
+                        ],
+                    },
                 }
-            ]
+            ],
         }
 
     @pytest.mark.asyncio
@@ -99,7 +106,14 @@ class TestOntarioGeoHubClient:
         mock_response.text = AsyncMock(return_value=json.dumps(mock_parks_response))
 
         with patch("aiohttp.ClientSession") as mock_session:
-            mock_session.return_value.__aenter__.return_value.get.return_value.__aenter__.return_value = mock_response
+            # Properly configure the async context manager
+            mock_get_context = AsyncMock()
+            mock_get_context.__aenter__.return_value = mock_response
+            mock_get_context.__aexit__.return_value = None
+
+            # Make get() return the async context manager (use MagicMock, not AsyncMock)
+            mock_session_instance = mock_session.return_value.__aenter__.return_value
+            mock_session_instance.get = MagicMock(return_value=mock_get_context)
 
             gdf = await client.get_provincial_parks()
 
@@ -121,7 +135,14 @@ class TestOntarioGeoHubClient:
         mock_response.text = AsyncMock(return_value=json.dumps(mock_parks_response))
 
         with patch("aiohttp.ClientSession") as mock_session:
-            mock_session.return_value.__aenter__.return_value.get.return_value.__aenter__.return_value = mock_response
+            # Properly configure the async context manager
+            mock_get_context = AsyncMock()
+            mock_get_context.__aenter__.return_value = mock_response
+            mock_get_context.__aexit__.return_value = None
+
+            # Make get() return the async context manager (use MagicMock, not AsyncMock)
+            mock_session_instance = mock_session.return_value.__aenter__.return_value
+            mock_session_instance.get = MagicMock(return_value=mock_get_context)
 
             gdf = await client.get_provincial_parks(bounds=bounds)
 
@@ -138,7 +159,14 @@ class TestOntarioGeoHubClient:
         mock_response.text = AsyncMock(return_value=json.dumps(mock_parks_response))
 
         with patch("aiohttp.ClientSession") as mock_session:
-            mock_session.return_value.__aenter__.return_value.get.return_value.__aenter__.return_value = mock_response
+            # Properly configure the async context manager
+            mock_get_context = AsyncMock()
+            mock_get_context.__aenter__.return_value = mock_response
+            mock_get_context.__aexit__.return_value = None
+
+            # Make get() return the async context manager (use MagicMock, not AsyncMock)
+            mock_session_instance = mock_session.return_value.__aenter__.return_value
+            mock_session_instance.get = MagicMock(return_value=mock_get_context)
 
             gdf = await client.get_provincial_parks()
 
@@ -157,22 +185,40 @@ class TestOntarioGeoHubClient:
         mock_response.status = 500
 
         with patch("aiohttp.ClientSession") as mock_session:
-            mock_session.return_value.__aenter__.return_value.get.return_value.__aenter__.return_value = mock_response
+            # Properly configure the async context manager
+            mock_get_context = AsyncMock()
+            mock_get_context.__aenter__.return_value = mock_response
+            mock_get_context.__aexit__.return_value = None
 
-            with pytest.raises(Exception):  # Should raise DataSourceError
+            # Make get() return the async context manager (use MagicMock, not AsyncMock)
+            mock_session_instance = mock_session.return_value.__aenter__.return_value
+            mock_session_instance.get = MagicMock(return_value=mock_get_context)
+
+            with pytest.raises(DataSourceError):
                 await client.get_provincial_parks()
 
     @pytest.mark.asyncio
-    async def test_get_conservation_authorities_success(self, mock_conservation_response):
+    async def test_get_conservation_authorities_success(
+        self, mock_conservation_response
+    ):
         """Test successful conservation authorities fetching."""
         client = OntarioGeoHubClient()
 
         mock_response = AsyncMock()
         mock_response.status = 200
-        mock_response.text = AsyncMock(return_value=json.dumps(mock_conservation_response))
+        mock_response.text = AsyncMock(
+            return_value=json.dumps(mock_conservation_response)
+        )
 
         with patch("aiohttp.ClientSession") as mock_session:
-            mock_session.return_value.__aenter__.return_value.get.return_value.__aenter__.return_value = mock_response
+            # Properly configure the async context manager
+            mock_get_context = AsyncMock()
+            mock_get_context.__aenter__.return_value = mock_response
+            mock_get_context.__aexit__.return_value = None
+
+            # Make get() return the async context manager (use MagicMock, not AsyncMock)
+            mock_session_instance = mock_session.return_value.__aenter__.return_value
+            mock_session_instance.get = MagicMock(return_value=mock_get_context)
 
             gdf = await client.get_conservation_authorities()
 
@@ -181,17 +227,28 @@ class TestOntarioGeoHubClient:
             assert gdf.crs == "EPSG:4326"
 
     @pytest.mark.asyncio
-    async def test_get_conservation_authorities_with_bounds(self, mock_conservation_response):
+    async def test_get_conservation_authorities_with_bounds(
+        self, mock_conservation_response
+    ):
         """Test conservation authorities fetching with bounding box."""
         client = OntarioGeoHubClient()
         bounds = (44.0, -79.0, 45.0, -78.0)
 
         mock_response = AsyncMock()
         mock_response.status = 200
-        mock_response.text = AsyncMock(return_value=json.dumps(mock_conservation_response))
+        mock_response.text = AsyncMock(
+            return_value=json.dumps(mock_conservation_response)
+        )
 
         with patch("aiohttp.ClientSession") as mock_session:
-            mock_session.return_value.__aenter__.return_value.get.return_value.__aenter__.return_value = mock_response
+            # Properly configure the async context manager
+            mock_get_context = AsyncMock()
+            mock_get_context.__aenter__.return_value = mock_response
+            mock_get_context.__aexit__.return_value = None
+
+            # Make get() return the async context manager (use MagicMock, not AsyncMock)
+            mock_session_instance = mock_session.return_value.__aenter__.return_value
+            mock_session_instance.get = MagicMock(return_value=mock_get_context)
 
             gdf = await client.get_conservation_authorities(bounds=bounds)
 
@@ -208,7 +265,14 @@ class TestOntarioGeoHubClient:
         mock_response.text = AsyncMock(return_value=json.dumps(mock_parks_response))
 
         with patch("aiohttp.ClientSession") as mock_session:
-            mock_session.return_value.__aenter__.return_value.get.return_value.__aenter__.return_value = mock_response
+            # Properly configure the async context manager
+            mock_get_context = AsyncMock()
+            mock_get_context.__aenter__.return_value = mock_response
+            mock_get_context.__aexit__.return_value = None
+
+            # Make get() return the async context manager (use MagicMock, not AsyncMock)
+            mock_session_instance = mock_session.return_value.__aenter__.return_value
+            mock_session_instance.get = MagicMock(return_value=mock_get_context)
 
             parks = await client.fetch(dataset="parks")
 
@@ -219,16 +283,27 @@ class TestOntarioGeoHubClient:
             assert "name" in parks[0]
 
     @pytest.mark.asyncio
-    async def test_fetch_conservation_authorities_returns_list_of_dicts(self, mock_conservation_response):
+    async def test_fetch_conservation_authorities_returns_list_of_dicts(
+        self, mock_conservation_response
+    ):
         """Test that fetch() with dataset='conservation_authorities' returns list of dictionaries."""
         client = OntarioGeoHubClient()
 
         mock_response = AsyncMock()
         mock_response.status = 200
-        mock_response.text = AsyncMock(return_value=json.dumps(mock_conservation_response))
+        mock_response.text = AsyncMock(
+            return_value=json.dumps(mock_conservation_response)
+        )
 
         with patch("aiohttp.ClientSession") as mock_session:
-            mock_session.return_value.__aenter__.return_value.get.return_value.__aenter__.return_value = mock_response
+            # Properly configure the async context manager
+            mock_get_context = AsyncMock()
+            mock_get_context.__aenter__.return_value = mock_response
+            mock_get_context.__aexit__.return_value = None
+
+            # Make get() return the async context manager (use MagicMock, not AsyncMock)
+            mock_session_instance = mock_session.return_value.__aenter__.return_value
+            mock_session_instance.get = MagicMock(return_value=mock_get_context)
 
             authorities = await client.fetch(dataset="conservation_authorities")
 

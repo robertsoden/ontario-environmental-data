@@ -25,11 +25,20 @@ from ontario_data.constants.regions import (
     WILLIAMS_TREATY_FIRST_NATIONS,
 )
 
+# Data models
+from ontario_data.models.biodiversity import BiodiversityObservation
+from ontario_data.models.fire import FirePerimeter
+from ontario_data.models.indigenous import ReserveBoundary, WaterAdvisory
+from ontario_data.models.protected_areas import ProtectedArea
+
 # Base classes
 from ontario_data.sources.base import BaseClient, DataSourceError
 
 # Biodiversity clients
 from ontario_data.sources.biodiversity import EBirdClient, INaturalistClient
+
+# Fire data clients
+from ontario_data.sources.fire import CWFISClient
 
 # Indigenous data clients
 from ontario_data.sources.indigenous import (
@@ -39,15 +48,6 @@ from ontario_data.sources.indigenous import (
 
 # Protected areas clients
 from ontario_data.sources.protected_areas import OntarioGeoHubClient
-
-# Fire data clients
-from ontario_data.sources.fire import CWFISClient
-
-# Data models
-from ontario_data.models.biodiversity import BiodiversityObservation
-from ontario_data.models.fire import FirePerimeter
-from ontario_data.models.indigenous import ReserveBoundary, WaterAdvisory
-from ontario_data.models.protected_areas import ProtectedArea
 
 # Utilities
 from ontario_data.utils import filter_by_bounds, get_bounds_from_aoi, point_in_bounds

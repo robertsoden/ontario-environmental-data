@@ -63,8 +63,7 @@ class WaterAdvisoriesClient(BaseClient):
 
         if not csv_path.exists():
             raise FileNotFoundError(
-                f"CSV file not found: {csv_path}\n"
-                f"Download from: {self.SOURCE_URL}"
+                f"CSV file not found: {csv_path}\n" f"Download from: {self.SOURCE_URL}"
             )
 
         logger.info(f"Reading water advisories from {csv_path}")
@@ -116,14 +115,14 @@ class WaterAdvisoriesClient(BaseClient):
         if "Advisory Date" in row and pd.notna(row["Advisory Date"]):
             try:
                 advisory_date = pd.to_datetime(row["Advisory Date"]).date()
-            except:
+            except Exception:
                 pass
 
         lift_date = None
         if "Lift Date" in row and pd.notna(row["Lift Date"]):
             try:
                 lift_date = pd.to_datetime(row["Lift Date"]).date()
-            except:
+            except Exception:
                 pass
 
         # Calculate duration
@@ -149,7 +148,11 @@ class WaterAdvisoriesClient(BaseClient):
             "is_active": is_active,
             "reason": str(row.get("Reason", "")),
             "water_system_name": str(row.get("Water System", "")),
-            "population_affected": int(row.get("Population", 0)) if pd.notna(row.get("Population")) else None,
+            "population_affected": (
+                int(row.get("Population", 0))
+                if pd.notna(row.get("Population"))
+                else None
+            ),
             "latitude": float(row["Latitude"]),
             "longitude": float(row["Longitude"]),
             "data_source": "Indigenous Services Canada",
@@ -194,7 +197,9 @@ class WaterAdvisoriesClient(BaseClient):
             return gpd.GeoDataFrame()
 
         df = pd.DataFrame(advisories)
-        geometry = [Point(row["longitude"], row["latitude"]) for _, row in df.iterrows()]
+        geometry = [
+            Point(row["longitude"], row["latitude"]) for _, row in df.iterrows()
+        ]
         gdf = gpd.GeoDataFrame(df, geometry=geometry, crs="EPSG:4326")
 
         return gdf
@@ -267,7 +272,9 @@ class StatisticsCanadaWFSClient(BaseClient):
 
             if first_nations:
                 # Build filter for First Nation names
-                name_filters = " OR ".join([f"IRNAME='{name}'" for name in first_nations])
+                name_filters = " OR ".join(
+                    [f"IRNAME='{name}'" for name in first_nations]
+                )
                 filters.append(f"({name_filters})")
 
             if filters:
@@ -279,7 +286,9 @@ class StatisticsCanadaWFSClient(BaseClient):
                 ) as response:
                     if response.status != 200:
                         logger.warning(f"WFS request failed: HTTP {response.status}")
-                        raise DataSourceError(f"WFS request failed: HTTP {response.status}")
+                        raise DataSourceError(
+                            f"WFS request failed: HTTP {response.status}"
+                        )
 
                     content = await response.text()
 
@@ -299,7 +308,7 @@ class StatisticsCanadaWFSClient(BaseClient):
 
             except Exception as e:
                 logger.error(f"Error fetching reserve boundaries: {e}")
-                raise DataSourceError(f"Failed to fetch reserve boundaries: {e}")
+                raise DataSourceError(f"Failed to fetch reserve boundaries: {e}") from e
 
     async def fetch(
         self,
@@ -317,7 +326,9 @@ class StatisticsCanadaWFSClient(BaseClient):
         Returns:
             List of reserve boundary dictionaries with GeoJSON geometries
         """
-        gdf = await self.get_reserve_boundaries(province=province, first_nations=first_nations)
+        gdf = await self.get_reserve_boundaries(
+            province=province, first_nations=first_nations
+        )
 
         # Convert to list of dictionaries
         reserves = []

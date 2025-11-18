@@ -1,7 +1,7 @@
 """Tests for fire data source clients."""
 
 import json
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import geopandas as gpd
 import pytest
@@ -27,14 +27,16 @@ class TestCWFISClient:
                     },
                     "geometry": {
                         "type": "Polygon",
-                        "coordinates": [[
-                            [-78.5, 44.5],
-                            [-78.4, 44.5],
-                            [-78.4, 44.6],
-                            [-78.5, 44.6],
-                            [-78.5, 44.5]
-                        ]]
-                    }
+                        "coordinates": [
+                            [
+                                [-78.5, 44.5],
+                                [-78.4, 44.5],
+                                [-78.4, 44.6],
+                                [-78.5, 44.6],
+                                [-78.5, 44.5],
+                            ]
+                        ],
+                    },
                 },
                 {
                     "type": "Feature",
@@ -45,16 +47,18 @@ class TestCWFISClient:
                     },
                     "geometry": {
                         "type": "Polygon",
-                        "coordinates": [[
-                            [-78.3, 44.3],
-                            [-78.2, 44.3],
-                            [-78.2, 44.4],
-                            [-78.3, 44.4],
-                            [-78.3, 44.3]
-                        ]]
-                    }
-                }
-            ]
+                        "coordinates": [
+                            [
+                                [-78.3, 44.3],
+                                [-78.2, 44.3],
+                                [-78.2, 44.4],
+                                [-78.3, 44.4],
+                                [-78.3, 44.3],
+                            ]
+                        ],
+                    },
+                },
+            ],
         }
 
     @pytest.mark.asyncio
@@ -68,12 +72,17 @@ class TestCWFISClient:
         mock_response.text = AsyncMock(return_value=json.dumps(mock_fire_response))
 
         with patch("aiohttp.ClientSession") as mock_session:
-            mock_session.return_value.__aenter__.return_value.get.return_value.__aenter__.return_value = mock_response
+            # Properly configure the async context manager
+            mock_get_context = AsyncMock()
+            mock_get_context.__aenter__.return_value = mock_response
+            mock_get_context.__aexit__.return_value = None
+
+            # Make get() return the async context manager (use MagicMock, not AsyncMock)
+            mock_session_instance = mock_session.return_value.__aenter__.return_value
+            mock_session_instance.get = MagicMock(return_value=mock_get_context)
 
             gdf = await client.get_fire_perimeters(
-                bounds=bounds,
-                start_year=2024,
-                end_year=2024
+                bounds=bounds, start_year=2024, end_year=2024
             )
 
             assert isinstance(gdf, gpd.GeoDataFrame)
@@ -93,12 +102,17 @@ class TestCWFISClient:
         mock_response.text = AsyncMock(return_value=json.dumps(mock_fire_response))
 
         with patch("aiohttp.ClientSession") as mock_session:
-            mock_session.return_value.__aenter__.return_value.get.return_value.__aenter__.return_value = mock_response
+            # Properly configure the async context manager
+            mock_get_context = AsyncMock()
+            mock_get_context.__aenter__.return_value = mock_response
+            mock_get_context.__aexit__.return_value = None
+
+            # Make get() return the async context manager (use MagicMock, not AsyncMock)
+            mock_session_instance = mock_session.return_value.__aenter__.return_value
+            mock_session_instance.get = MagicMock(return_value=mock_get_context)
 
             gdf = await client.get_fire_perimeters(
-                bounds=bounds,
-                start_year=2022,
-                end_year=2024
+                bounds=bounds, start_year=2022, end_year=2024
             )
 
             # Should aggregate across 3 years (2022, 2023, 2024)
@@ -120,12 +134,17 @@ class TestCWFISClient:
         mock_response.text = AsyncMock(return_value=json.dumps(empty_response))
 
         with patch("aiohttp.ClientSession") as mock_session:
-            mock_session.return_value.__aenter__.return_value.get.return_value.__aenter__.return_value = mock_response
+            # Properly configure the async context manager
+            mock_get_context = AsyncMock()
+            mock_get_context.__aenter__.return_value = mock_response
+            mock_get_context.__aexit__.return_value = None
+
+            # Make get() return the async context manager (use MagicMock, not AsyncMock)
+            mock_session_instance = mock_session.return_value.__aenter__.return_value
+            mock_session_instance.get = MagicMock(return_value=mock_get_context)
 
             gdf = await client.get_fire_perimeters(
-                bounds=bounds,
-                start_year=2024,
-                end_year=2024
+                bounds=bounds, start_year=2024, end_year=2024
             )
 
             assert isinstance(gdf, gpd.GeoDataFrame)
@@ -141,13 +160,18 @@ class TestCWFISClient:
         mock_response.status = 500
 
         with patch("aiohttp.ClientSession") as mock_session:
-            mock_session.return_value.__aenter__.return_value.get.return_value.__aenter__.return_value = mock_response
+            # Properly configure the async context manager
+            mock_get_context = AsyncMock()
+            mock_get_context.__aenter__.return_value = mock_response
+            mock_get_context.__aexit__.return_value = None
+
+            # Make get() return the async context manager (use MagicMock, not AsyncMock)
+            mock_session_instance = mock_session.return_value.__aenter__.return_value
+            mock_session_instance.get = MagicMock(return_value=mock_get_context)
 
             # Should handle error gracefully and return empty GeoDataFrame
             gdf = await client.get_fire_perimeters(
-                bounds=bounds,
-                start_year=2024,
-                end_year=2024
+                bounds=bounds, start_year=2024, end_year=2024
             )
 
             assert isinstance(gdf, gpd.GeoDataFrame)
@@ -177,13 +201,16 @@ class TestCWFISClient:
         mock_response.text = AsyncMock(return_value=json.dumps(mock_fire_response))
 
         with patch("aiohttp.ClientSession") as mock_session:
-            mock_session.return_value.__aenter__.return_value.get.return_value.__aenter__.return_value = mock_response
+            # Properly configure the async context manager
+            mock_get_context = AsyncMock()
+            mock_get_context.__aenter__.return_value = mock_response
+            mock_get_context.__aexit__.return_value = None
 
-            fires = await client.fetch(
-                bounds=bounds,
-                start_year=2024,
-                end_year=2024
-            )
+            # Make get() return the async context manager (use MagicMock, not AsyncMock)
+            mock_session_instance = mock_session.return_value.__aenter__.return_value
+            mock_session_instance.get = MagicMock(return_value=mock_get_context)
+
+            fires = await client.fetch(bounds=bounds, start_year=2024, end_year=2024)
 
             assert isinstance(fires, list)
             assert len(fires) == 2

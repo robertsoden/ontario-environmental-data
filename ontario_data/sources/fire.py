@@ -7,13 +7,13 @@ Provides clients for:
 
 import io
 import logging
-from typing import Dict, List, Optional
+from typing import Dict, List
 
 import aiohttp
 import geopandas as gpd
 import pandas as pd
 
-from ontario_data.sources.base import BaseClient, DataSourceError
+from ontario_data.sources.base import BaseClient
 
 logger = logging.getLogger(__name__)
 
@@ -101,11 +101,13 @@ class CWFISClient(BaseClient):
                                     all_perimeters.append(gdf)
                                     logger.info(f"    Found {len(gdf)} fire perimeters")
                                 else:
-                                    logger.info(f"    No fires found in AOI")
+                                    logger.info("    No fires found in AOI")
                             else:
                                 logger.warning(f"    No data for {year}")
                         else:
-                            logger.warning(f"    Request failed for {year}: HTTP {response.status}")
+                            logger.warning(
+                                f"    Request failed for {year}: HTTP {response.status}"
+                            )
 
                 except Exception as e:
                     logger.warning(f"    Error fetching {year}: {e}")
@@ -182,7 +184,9 @@ class CWFISClient(BaseClient):
             fire = {
                 "fire_id": row.get("FIRE_ID", str(row.get("year", ""))),
                 "fire_year": int(row.get("year", start_year)),
-                "area_hectares": float(row.get("AREA_HA", 0)) if "AREA_HA" in row else None,
+                "area_hectares": (
+                    float(row.get("AREA_HA", 0)) if "AREA_HA" in row else None
+                ),
                 "cause": row.get("CAUSE", ""),
                 "geometry": gpd.GeoSeries([row.geometry]).to_json(),
                 "data_source": "CWFIS/NBAC",

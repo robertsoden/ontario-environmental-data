@@ -1,9 +1,9 @@
 """Pydantic models for Indigenous data."""
 
-from datetime import date, datetime
-from typing import Dict, List, Optional
+from datetime import date
+from typing import Dict, Optional
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field
 
 
 class WaterAdvisory(BaseModel):
@@ -25,8 +25,7 @@ class WaterAdvisory(BaseModel):
     latitude: float = Field(..., description="Latitude", ge=-90, le=90)
     longitude: float = Field(..., description="Longitude", ge=-180, le=180)
     data_source: str = Field(
-        default="Indigenous Services Canada",
-        description="Data source"
+        default="Indigenous Services Canada", description="Data source"
     )
     source_url: Optional[str] = Field(None, description="Source URL")
 
@@ -55,7 +54,7 @@ class WaterAdvisory(BaseModel):
             "type": "Feature",
             "geometry": {
                 "type": "Point",
-                "coordinates": [self.longitude, self.latitude]
+                "coordinates": [self.longitude, self.latitude],
             },
             "properties": {
                 "advisory_id": self.advisory_id,
@@ -64,7 +63,9 @@ class WaterAdvisory(BaseModel):
                 "region": self.region,
                 "province": self.province,
                 "advisory_type": self.advisory_type,
-                "advisory_date": self.advisory_date.isoformat() if self.advisory_date else None,
+                "advisory_date": (
+                    self.advisory_date.isoformat() if self.advisory_date else None
+                ),
                 "lift_date": self.lift_date.isoformat() if self.lift_date else None,
                 "duration_days": self.duration_days,
                 "is_active": self.is_active,
@@ -88,7 +89,9 @@ class ReserveBoundary(BaseModel):
     area_hectares: Optional[float] = Field(None, description="Area in hectares")
     population: Optional[int] = Field(None, description="Population")
     website: Optional[str] = Field(None, description="First Nation website")
-    traditional_territory: Optional[str] = Field(None, description="Traditional territory description")
+    traditional_territory: Optional[str] = Field(
+        None, description="Traditional territory description"
+    )
     geometry: Dict = Field(..., description="GeoJSON geometry (Point or Polygon)")
     data_source: str = Field(default="Statistics Canada", description="Data source")
 
@@ -101,10 +104,7 @@ class ReserveBoundary(BaseModel):
                 "first_nation": "Curve Lake First Nation",
                 "treaty": "Williams Treaty (1923)",
                 "treaty_date": "1923-10-31",
-                "geometry": {
-                    "type": "Point",
-                    "coordinates": [-78.2289, 44.5319]
-                }
+                "geometry": {"type": "Point", "coordinates": [-78.2289, 44.5319]},
             }
         }
 

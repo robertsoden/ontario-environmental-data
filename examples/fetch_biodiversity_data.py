@@ -10,9 +10,9 @@ This example demonstrates how to:
 
 import asyncio
 import json
-import os
-from ontario_data.sources import INaturalistClient
+
 from ontario_data.models import BiodiversityObservation
+from ontario_data.sources import INaturalistClient
 
 
 async def main():
@@ -55,15 +55,12 @@ async def main():
             print()
 
         # Count unique species
-        unique_species = len(set(obs["scientific_name"] for obs in observations))
+        unique_species = len({obs["scientific_name"] for obs in observations})
         print(f"Unique species: {unique_species}")
         print()
 
         # Export to GeoJSON
-        geojson = {
-            "type": "FeatureCollection",
-            "features": []
-        }
+        geojson = {"type": "FeatureCollection", "features": []}
 
         for obs in observations:
             # Validate with Pydantic model
@@ -71,7 +68,9 @@ async def main():
                 model = BiodiversityObservation(**obs)
                 geojson["features"].append(model.to_geojson_feature())
             except Exception as e:
-                print(f"Warning: Could not validate observation {obs.get('observation_id')}: {e}")
+                print(
+                    f"Warning: Could not validate observation {obs.get('observation_id')}: {e}"
+                )
 
         # Save to file
         output_file = "peterborough_biodiversity.geojson"

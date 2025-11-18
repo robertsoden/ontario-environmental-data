@@ -6,7 +6,6 @@ Provides clients for:
 """
 
 import logging
-from datetime import datetime
 from typing import Dict, List, Optional
 
 import aiohttp
@@ -274,7 +273,7 @@ class EBirdClient(BaseClient):
 
         except Exception as e:
             logger.error(f"Error fetching eBird data: {e}")
-            raise DataSourceError(f"eBird API error: {e}")
+            raise DataSourceError(f"eBird API error: {e}") from e
 
     async def fetch(
         self,
