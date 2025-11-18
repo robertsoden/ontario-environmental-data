@@ -55,34 +55,38 @@ async def collect_all_data():
     }
 
     # ==========================================================================
-    # 1. WILLIAMS TREATY FIRST NATIONS BOUNDARIES
+    # 1. WILLIAMS TREATY FIRST NATIONS DATA
     # ==========================================================================
     print("\n" + "=" * 80)
-    print("1. WILLIAMS TREATY FIRST NATIONS BOUNDARIES")
+    print("1. WILLIAMS TREATY FIRST NATIONS DATA")
     print("=" * 80)
 
     try:
         client = StatisticsCanadaWFSClient()
 
-        # Get Williams Treaty boundaries (fallback data)
-        print("\nFetching Williams Treaty First Nations boundaries...")
-        gdf = client.create_williams_treaty_data()
+        # Get Williams Treaty community points (fallback data)
+        print("\nFetching Williams Treaty First Nations community locations...")
+        communities_gdf = client.create_williams_treaty_data()
 
-        output_file = OUTPUT_DIR / "williams_treaty_boundaries.geojson"
-        gdf.to_file(output_file, driver="GeoJSON")
+        # Create communities directory
+        communities_dir = OUTPUT_DIR / "communities"
+        communities_dir.mkdir(parents=True, exist_ok=True)
 
-        print(f"✅ Saved {len(gdf)} First Nations boundaries")
-        print(f"   File: {output_file}")
+        output_file_communities = communities_dir / "williams_treaty_communities.geojson"
+        communities_gdf.to_file(output_file_communities, driver="GeoJSON")
 
-        results["sources"]["williams_treaty_boundaries"] = {
+        print(f"✅ Saved {len(communities_gdf)} First Nations community points")
+        print(f"   File: {output_file_communities}")
+
+        results["sources"]["williams_treaty_communities"] = {
             "status": "success",
-            "count": len(gdf),
-            "file": str(output_file),
-            "first_nations": list(gdf["first_nation"])
+            "count": len(communities_gdf),
+            "file": str(output_file_communities),
+            "first_nations": list(communities_gdf["first_nation"])
         }
 
-        # Try to fetch official boundaries from WFS
-        print("\nAttempting to fetch official boundaries from Statistics Canada WFS...")
+        # Try to fetch official reserve boundaries from WFS
+        print("\nAttempting to fetch official treaty boundary polygon from Statistics Canada WFS...")
         try:
             official_gdf = await client.get_reserve_boundaries(
                 province="ON",
@@ -91,23 +95,30 @@ async def collect_all_data():
             )
 
             if not official_gdf.empty:
-                output_file_official = OUTPUT_DIR / "williams_treaty_boundaries_official.geojson"
-                official_gdf.to_file(output_file_official, driver="GeoJSON")
-                print(f"✅ Saved {len(official_gdf)} official boundaries from Stats Canada")
-                print(f"   File: {output_file_official}")
+                # Create boundaries directory
+                boundaries_dir = OUTPUT_DIR / "boundaries"
+                boundaries_dir.mkdir(parents=True, exist_ok=True)
 
-                results["sources"]["williams_treaty_boundaries_official"] = {
+                output_file_boundaries = boundaries_dir / "williams_treaty.geojson"
+                official_gdf.to_file(output_file_boundaries, driver="GeoJSON")
+                print(f"✅ Saved Williams Treaty boundary polygon from Stats Canada")
+                print(f"   File: {output_file_boundaries}")
+
+                results["sources"]["williams_treaty_boundaries"] = {
                     "status": "success",
                     "count": len(official_gdf),
-                    "file": str(output_file_official)
+                    "file": str(output_file_boundaries)
                 }
+            else:
+                print("⚠️  No official boundary polygon returned")
+                print("   Note: Treaty boundary polygon should be manually added to data/processed/boundaries/")
         except Exception as e:
             print(f"⚠️  Could not fetch official boundaries: {e}")
-            print("   Using fallback data with approximate coordinates")
+            print("   Note: Treaty boundary polygon should be manually added to data/processed/boundaries/williams_treaty.geojson")
 
     except Exception as e:
         print(f"❌ Error: {e}")
-        results["sources"]["williams_treaty_boundaries"] = {
+        results["sources"]["williams_treaty_communities"] = {
             "status": "error",
             "error": str(e)
         }
