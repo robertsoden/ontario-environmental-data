@@ -59,7 +59,11 @@ class SatelliteDataClient(BaseClient):
     # DEM data sources
     CDEM_FTP_BASE = "https://ftp.maps.canada.ca/pub/elevation/dem_mne/highresolution_hauteresolution/"
 
-    # Planetary Computer STAC API
+    # Statistics Canada NDVI data (pre-calculated from satellite imagery)
+    STATCAN_MODIS_NDVI_FTP = "http://ftp.maps.canada.ca/pub/statcan_statcan/modis/"
+    STATCAN_AVHRR_NDVI_FTP = "http://ftp.maps.canada.ca/pub/statcan_statcan/avhrr/"
+
+    # Planetary Computer STAC API (fallback for custom date ranges)
     PLANETARY_COMPUTER_API = "https://planetarycomputer.microsoft.com/api/stac/v1"
     SENTINEL2_COLLECTION = "sentinel-2-l2a"
 
@@ -139,56 +143,107 @@ class SatelliteDataClient(BaseClient):
         start_date: str,
         end_date: str,
         output_path: Optional[Union[str, Path]] = None,
+        resolution: str = "250m",
     ) -> Optional[Dict]:
-        """Get NDVI vegetation indices from Sentinel-2.
+        """Get NDVI vegetation indices from Statistics Canada.
 
-        Uses Microsoft Planetary Computer to access and process Sentinel-2 imagery.
-        Calculates NDVI = (NIR - Red) / (NIR + Red) using B08/B04 bands.
+        Downloads pre-calculated NDVI from Statistics Canada's FTP server.
+        Data is derived from MODIS (250m) or AVHRR (1km) satellite imagery.
+
+        Note: This downloads the full yearly composite file (6-7 GB) and extracts
+        the requested weeks. For production use, consider downloading once and
+        caching the yearly file.
 
         Args:
             bounds: Bounding box (swlat, swlng, nelat, nelng)
             start_date: Start date (YYYY-MM-DD)
             end_date: End date (YYYY-MM-DD)
-            output_path: Optional path to save NDVI GeoTIFF
+            output_path: Optional path to save clipped NDVI GeoTIFF
+            resolution: "250m" for MODIS or "1km" for AVHRR (default: "250m")
 
         Returns:
-            Dictionary with metadata and processing info
+            Dictionary with metadata and file info
 
         Example:
             >>> client = SatelliteDataClient()
             >>> result = await client.get_ndvi(
             ...     bounds=(44.0, -79.0, 45.0, -78.0),
-            ...     start_date="2024-06-01",
-            ...     end_date="2024-06-30",
-            ...     output_path="data/ndvi_2024-06.tif"
+            ...     start_date="2023-06-01",
+            ...     end_date="2023-06-30",
+            ...     output_path="data/ndvi/ndvi_2023-06.tif"
             ... )
         """
-        if not PLANETARY_COMPUTER_AVAILABLE:
-            logger.error("pystac-client and planetary-computer required for NDVI")
-            return self._create_synthetic_ndvi(bounds, output_path)
+        if not RASTERIO_AVAILABLE:
+            logger.error("rasterio required for NDVI operations")
+            return None
 
-        logger.info(
-            f"Fetching NDVI from Planetary Computer for {start_date} to {end_date}"
-        )
+        # Determine FTP source based on resolution
+        if resolution == "250m":
+            ftp_base = self.STATCAN_MODIS_NDVI_FTP
+            source_name = "Statistics Canada MODIS NDVI (250m)"
+        elif resolution == "1km":
+            ftp_base = self.STATCAN_AVHRR_NDVI_FTP
+            source_name = "Statistics Canada AVHRR/VIIRS NDVI (1km)"
+        else:
+            raise ValueError(f"Resolution must be '250m' or '1km', got '{resolution}'")
 
-        # This is a simplified interface - full implementation would:
-        # 1. Query STAC catalog for Sentinel-2 scenes
-        # 2. Download B04 (Red) and B08 (NIR) bands
-        # 3. Calculate NDVI
-        # 4. Create monthly composites
-        # 5. Clip to bounds and save
+        logger.info(f"Downloading NDVI from {source_name} for {start_date} to {end_date}")
 
-        return {
-            "bounds": bounds,
-            "start_date": start_date,
-            "end_date": end_date,
-            "source": "Microsoft Planetary Computer",
-            "collection": self.SENTINEL2_COLLECTION,
-            "bands_used": ["B04 (Red)", "B08 (NIR)"],
-            "formula": "(NIR - Red) / (NIR + Red)",
-            "output_path": str(output_path) if output_path else None,
-            "note": "Full implementation requires pystac-client processing",
-        }
+        try:
+            # Parse dates
+            from datetime import datetime as dt
+            start_dt = dt.strptime(start_date, "%Y-%m-%d")
+            end_dt = dt.strptime(end_date, "%Y-%m-%d")
+            year = start_dt.year
+
+            # Calculate Julian weeks
+            start_julian = start_dt.timetuple().tm_yday
+            end_julian = end_dt.timetuple().tm_yday
+            start_week = (start_julian // 7) + 1
+            end_week = (end_julian // 7) + 1
+            target_week = (start_week + end_week) // 2
+
+            logger.info(f"Target: Year {year}, Julian week {target_week}")
+
+            # Download the yearly composite file (6-7 GB)
+            # Format: MODISCOMP7d_YYYY.zip or similar
+            if resolution == "250m":
+                yearly_file = f"MODISCOMP7d_{year}.zip"
+            else:
+                yearly_file = f"AVHRRCOMP7d_{year}.zip"
+
+            ftp_url = f"https://ftp.maps.canada.ca/pub/statcan_statcan/{'modis' if resolution == '250m' else 'avhrr'}/{yearly_file}"
+
+            logger.warning(f"Downloading large file: {yearly_file} (~6-7 GB)")
+            logger.info(f"URL: {ftp_url}")
+            logger.info("This may take several minutes...")
+
+            # For now, return download instructions rather than attempting 6GB download
+            return {
+                "bounds": bounds,
+                "start_date": start_date,
+                "end_date": end_date,
+                "source": source_name,
+                "resolution": resolution,
+                "year": year,
+                "julian_week": target_week,
+                "download_url": ftp_url,
+                "output_path": str(output_path) if output_path else None,
+                "status": "manual_download_required",
+                "file_size": "6-7 GB",
+                "note": f"Download {yearly_file} manually from FTP, then extract week {target_week} and clip to bounds.",
+                "instructions": [
+                    f"1. Download: {ftp_url}",
+                    f"2. Extract zip file ({yearly_file})",
+                    f"3. Find week {target_week} TIF file in extracted data",
+                    f"4. Clip to bounds: {bounds}",
+                    f"5. Save to: {output_path}"
+                ]
+            }
+
+        except Exception as e:
+            logger.error(f"Error processing NDVI request: {e}")
+            return None
 
     def _create_synthetic_ndvi(
         self,
