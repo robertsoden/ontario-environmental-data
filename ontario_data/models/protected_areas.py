@@ -29,10 +29,7 @@ class ProtectedArea(BaseModel):
                 "designation": "Provincial Park",
                 "managing_authority": "Ontario Parks",
                 "hectares": 37595.0,
-                "geometry": {
-                    "type": "Point",
-                    "coordinates": [-78.2, 44.85]
-                }
+                "geometry": {"type": "Point", "coordinates": [-78.2, 44.85]},
             }
         }
 

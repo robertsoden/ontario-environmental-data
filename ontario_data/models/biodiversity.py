@@ -1,6 +1,5 @@
 """Pydantic models for biodiversity observations."""
 
-from datetime import datetime
 from typing import Dict, List, Optional
 
 from pydantic import BaseModel, Field, field_validator

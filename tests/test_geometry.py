@@ -88,7 +88,12 @@ class TestGetBoundsFromAOI:
 
     def test_unsupported_geometry_type(self):
         """Test that unsupported geometry types raise ValueError."""
-        aoi = {"geometry": {"type": "LineString", "coordinates": [[-79.0, 44.0], [-78.0, 45.0]]}}
+        aoi = {
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [[-79.0, 44.0], [-78.0, 45.0]],
+            }
+        }
         with pytest.raises(ValueError, match="Unsupported geometry type"):
             get_bounds_from_aoi(aoi)
 
