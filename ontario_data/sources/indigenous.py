@@ -194,7 +194,7 @@ class WaterAdvisoriesClient(BaseClient):
             GeoDataFrame with Point geometries
         """
         if not advisories:
-            return gpd.GeoDataFrame()
+            return gpd.GeoDataFrame(geometry=[], crs="EPSG:4326")
 
         df = pd.DataFrame(advisories)
         geometry = [

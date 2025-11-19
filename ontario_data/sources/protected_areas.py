@@ -191,7 +191,11 @@ class OntarioGeoHubClient(BaseClient):
 
             except Exception as e:
                 logger.error(f"Error fetching provincial parks: {e}")
-                raise DataSourceError(f"Failed to fetch provincial parks: {e}") from e
+                logger.info(
+                    "Returning empty GeoDataFrame due to error. "
+                    "Check network connection and API availability."
+                )
+                return gpd.GeoDataFrame(geometry=[], crs="EPSG:4326")
 
     async def get_conservation_authorities(
         self,

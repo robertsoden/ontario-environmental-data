@@ -147,7 +147,7 @@ class CWFISClient(BaseClient):
                 "  https://opendata.nfis.org/\n"
                 "  https://cwfis.cfs.nrcan.gc.ca/datamart"
             )
-            return gpd.GeoDataFrame()
+            return gpd.GeoDataFrame(geometry=[], crs="EPSG:4326")
 
     async def get_current_fire_danger(
         self,
