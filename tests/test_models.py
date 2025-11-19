@@ -132,10 +132,7 @@ class TestReserveBoundary:
         reserve = ReserveBoundary(
             reserve_name="Curve Lake 35",
             first_nation="Curve Lake First Nation",
-            geometry={
-                "type": "Point",
-                "coordinates": [-78.2289, 44.5319]
-            }
+            geometry={"type": "Point", "coordinates": [-78.2289, 44.5319]},
         )
 
         assert reserve.reserve_name == "Curve Lake 35"
@@ -157,15 +154,17 @@ class TestReserveBoundary:
             traditional_territory="Kawartha Lakes region",
             geometry={
                 "type": "Polygon",
-                "coordinates": [[
-                    [-78.3, 44.5],
-                    [-78.1, 44.5],
-                    [-78.1, 44.6],
-                    [-78.3, 44.6],
-                    [-78.3, 44.5]
-                ]]
+                "coordinates": [
+                    [
+                        [-78.3, 44.5],
+                        [-78.1, 44.5],
+                        [-78.1, 44.6],
+                        [-78.3, 44.6],
+                        [-78.3, 44.5],
+                    ]
+                ],
             },
-            data_source="Statistics Canada"
+            data_source="Statistics Canada",
         )
 
         assert reserve.treaty == "Williams Treaty (1923)"
@@ -183,10 +182,7 @@ class TestReserveBoundary:
             first_nation="Test Nation",
             treaty="Test Treaty",
             area_hectares=500.0,
-            geometry={
-                "type": "Point",
-                "coordinates": [-78.0, 44.0]
-            }
+            geometry={"type": "Point", "coordinates": [-78.0, 44.0]},
         )
 
         feature = reserve.to_geojson_feature()
@@ -211,14 +207,16 @@ class TestFirePerimeter:
             area_hectares=1500.0,
             geometry={
                 "type": "Polygon",
-                "coordinates": [[
-                    [-78.5, 44.5],
-                    [-78.4, 44.5],
-                    [-78.4, 44.6],
-                    [-78.5, 44.6],
-                    [-78.5, 44.5]
-                ]]
-            }
+                "coordinates": [
+                    [
+                        [-78.5, 44.5],
+                        [-78.4, 44.5],
+                        [-78.4, 44.6],
+                        [-78.5, 44.6],
+                        [-78.5, 44.5],
+                    ]
+                ],
+            },
         )
 
         assert fire.fire_id == "ON2024001"
@@ -240,15 +238,17 @@ class TestFirePerimeter:
             fire_type="Wildfire",
             geometry={
                 "type": "Polygon",
-                "coordinates": [[
-                    [-78.5, 44.5],
-                    [-78.4, 44.5],
-                    [-78.4, 44.6],
-                    [-78.5, 44.6],
-                    [-78.5, 44.5]
-                ]]
+                "coordinates": [
+                    [
+                        [-78.5, 44.5],
+                        [-78.4, 44.5],
+                        [-78.4, 44.6],
+                        [-78.5, 44.6],
+                        [-78.5, 44.5],
+                    ]
+                ],
             },
-            data_source="CWFIS/NBAC"
+            data_source="CWFIS/NBAC",
         )
 
         assert fire.fire_number == "001"
@@ -265,7 +265,7 @@ class TestFirePerimeter:
                 fire_id="TEST",
                 fire_year=2024,
                 area_hectares=-100.0,  # Invalid: negative
-                geometry={"type": "Point", "coordinates": [-78.0, 44.0]}
+                geometry={"type": "Point", "coordinates": [-78.0, 44.0]},
             )
 
     def test_to_geojson_feature(self):
@@ -277,14 +277,16 @@ class TestFirePerimeter:
             cause="Lightning",
             geometry={
                 "type": "Polygon",
-                "coordinates": [[
-                    [-78.5, 44.5],
-                    [-78.4, 44.5],
-                    [-78.4, 44.6],
-                    [-78.5, 44.6],
-                    [-78.5, 44.5]
-                ]]
-            }
+                "coordinates": [
+                    [
+                        [-78.5, 44.5],
+                        [-78.4, 44.5],
+                        [-78.4, 44.6],
+                        [-78.5, 44.6],
+                        [-78.5, 44.5],
+                    ]
+                ],
+            },
         )
 
         feature = fire.to_geojson_feature()
@@ -306,10 +308,7 @@ class TestProtectedArea:
             name="Kawartha Highlands Provincial Park",
             designation="Provincial Park",
             managing_authority="Ontario Parks",
-            geometry={
-                "type": "Point",
-                "coordinates": [-78.2, 44.85]
-            }
+            geometry={"type": "Point", "coordinates": [-78.2, 44.85]},
         )
 
         assert area.name == "Kawartha Highlands Provincial Park"
@@ -331,15 +330,17 @@ class TestProtectedArea:
             zone_class="Wilderness",
             geometry={
                 "type": "Polygon",
-                "coordinates": [[
-                    [-78.3, 44.8],
-                    [-78.1, 44.8],
-                    [-78.1, 44.9],
-                    [-78.3, 44.9],
-                    [-78.3, 44.8]
-                ]]
+                "coordinates": [
+                    [
+                        [-78.3, 44.8],
+                        [-78.1, 44.8],
+                        [-78.1, 44.9],
+                        [-78.3, 44.9],
+                        [-78.3, 44.8],
+                    ]
+                ],
             },
-            data_source="Ontario GeoHub"
+            data_source="Ontario GeoHub",
         )
 
         assert area.park_id == "123"
@@ -357,7 +358,7 @@ class TestProtectedArea:
                 designation="Provincial Park",
                 managing_authority="Ontario Parks",
                 hectares=-100.0,  # Invalid: negative
-                geometry={"type": "Point", "coordinates": [-78.0, 44.0]}
+                geometry={"type": "Point", "coordinates": [-78.0, 44.0]},
             )
 
     def test_to_geojson_feature(self):
@@ -369,10 +370,7 @@ class TestProtectedArea:
             designation="Provincial Park",
             managing_authority="Ontario Parks",
             hectares=1000.0,
-            geometry={
-                "type": "Point",
-                "coordinates": [-78.2, 44.85]
-            }
+            geometry={"type": "Point", "coordinates": [-78.2, 44.85]},
         )
 
         feature = area.to_geojson_feature()
@@ -393,7 +391,7 @@ class TestProtectedArea:
             name="Test Park",
             designation="Provincial Park",
             managing_authority="Ontario Parks",
-            geometry={"type": "Point", "coordinates": [-78.0, 44.0]}
+            geometry={"type": "Point", "coordinates": [-78.0, 44.0]},
         )
 
         assert area.park_id is None

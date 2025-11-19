@@ -4,7 +4,7 @@ import asyncio
 import logging
 from abc import ABC, abstractmethod
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 import aiohttp
 
@@ -13,6 +13,7 @@ logger = logging.getLogger(__name__)
 
 class DataSourceError(Exception):
     """Custom exception for data source errors."""
+
     pass
 
 
@@ -92,7 +93,7 @@ class BaseClient(ABC):
                         continue
                     elif response.status >= 500:  # Server error
                         logger.warning(f"Server error {response.status}, retrying...")
-                        delay = self.base_delay * (2 ** attempt)
+                        delay = self.base_delay * (2**attempt)
                         await asyncio.sleep(delay)
                         continue
                     else:
@@ -101,10 +102,14 @@ class BaseClient(ABC):
                         )
 
             except aiohttp.ClientError as e:
-                logger.warning(f"Request failed (attempt {attempt + 1}/{self.max_retries}): {e}")
+                logger.warning(
+                    f"Request failed (attempt {attempt + 1}/{self.max_retries}): {e}"
+                )
                 if attempt == self.max_retries - 1:
-                    raise DataSourceError(f"Request failed after {self.max_retries} attempts: {e}")
-                delay = self.base_delay * (2 ** attempt)
+                    raise DataSourceError(
+                        f"Request failed after {self.max_retries} attempts: {e}"
+                    ) from e
+                delay = self.base_delay * (2**attempt)
                 await asyncio.sleep(delay)
 
         raise DataSourceError(f"Request failed after {self.max_retries} attempts")
