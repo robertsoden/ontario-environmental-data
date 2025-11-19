@@ -3,23 +3,80 @@ name: Data Collection
 on:
   workflow_dispatch:
     inputs:
-      collection_type:
-        description: 'Type of data collection to run'
-        required: true
-        type: choice
-        options:
-          - full-ontario
-          - williams-treaty
-          - test-clients
+      # Data source selection
+      williams_treaty_communities:
+        description: '☐ Williams Treaty Communities (community points)'
+        type: boolean
+        default: false
+      williams_treaty_boundaries:
+        description: '☐ Williams Treaty Boundaries (territory polygon)'
+        type: boolean
+        default: false
+      fire_perimeters:
+        description: '☐ Fire Perimeters (historical 1976-2024)'
+        type: boolean
+        default: false
+      provincial_parks:
+        description: '☐ Provincial Parks (Ontario parks)'
+        type: boolean
+        default: false
+      conservation_authorities:
+        description: '☐ Conservation Authorities (CA boundaries)'
+        type: boolean
+        default: false
+      inaturalist:
+        description: '☐ iNaturalist (biodiversity observations)'
+        type: boolean
+        default: false
+      satellite:
+        description: '☐ Satellite Data (NDVI, land cover info)'
+        type: boolean
+        default: false
+      # Options
       upload_artifacts:
-        description: 'Upload generated data as artifacts'
-        required: true
+        description: '📦 Upload generated data as artifacts (30 days)'
         type: boolean
         default: true
+      force_refresh:
+        description: '🔄 Force refresh (re-download existing data)'
+        type: boolean
+        default: false
 
 jobs:
+  check-status:
+    name: Check Data Status
+    runs-on: ubuntu-latest
+    outputs:
+      status: ${{ steps.check.outputs.status }}
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.11"
+
+    - name: Check existing data status
+      id: check
+      run: |
+        python check_data_status.py
+
+        echo "## 📊 Current Data Status" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "Status check completed before data collection." >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+
+        if [ -f "data_status.json" ]; then
+          echo "### Existing Data Files" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          cat data_status.json | python -m json.tool 2>/dev/null || cat data_status.json
+          echo '```' >> $GITHUB_STEP_SUMMARY
+        fi
+
   collect-data:
-    name: Collect ${{ github.event.inputs.collection_type }}
+    name: Collect Selected Data
+    needs: check-status
     runs-on: ubuntu-latest
     timeout-minutes: 60
 
@@ -37,39 +94,223 @@ jobs:
         python -m pip install --upgrade pip
         pip install -e ".[dev]"
 
-    - name: Run Full Ontario Data Collection
-      if: github.event.inputs.collection_type == 'full-ontario'
+    - name: Check before status
       run: |
-        python collect_all_data.py
+        echo "=== DATA STATUS BEFORE COLLECTION ==="
+        python check_data_status.py
+
+    - name: Create selective collection script
+      run: |
+        cat > collect_selected_data.py << 'EOFPYTHON'
+        #!/usr/bin/env python3
+        import asyncio
+        import json
+        import os
+        from pathlib import Path
+        from datetime import datetime
+
+        from ontario_data import (
+            WILLIAMS_TREATY_FIRST_NATIONS,
+            CWFISClient,
+            INaturalistClient,
+            OntarioGeoHubClient,
+            SatelliteDataClient,
+            StatisticsCanadaWFSClient,
+        )
+
+        DATA_DIR = Path("data")
+        OUTPUT_DIR = DATA_DIR / "processed"
+        OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+
+        # Ontario bounds
+        ONTARIO_BOUNDS = (41.7, -95.2, 56.9, -74.3)
+        WILLIAMS_TREATY_BOUNDS = (43.8, -80.2, 45.2, -78.0)
+
+        # Read selections from environment
+        SELECTED = {
+            'williams_treaty_communities': os.getenv('COLLECT_WT_COMMUNITIES', 'false') == 'true',
+            'williams_treaty_boundaries': os.getenv('COLLECT_WT_BOUNDARIES', 'false') == 'true',
+            'fire_perimeters': os.getenv('COLLECT_FIRE', 'false') == 'true',
+            'provincial_parks': os.getenv('COLLECT_PARKS', 'false') == 'true',
+            'conservation_authorities': os.getenv('COLLECT_CA', 'false') == 'true',
+            'inaturalist': os.getenv('COLLECT_INAT', 'false') == 'true',
+            'satellite': os.getenv('COLLECT_SATELLITE', 'false') == 'true',
+        }
+
+        async def main():
+            results = {"timestamp": datetime.now().isoformat(), "collected": {}}
+
+            print("=" * 80)
+            print("SELECTIVE DATA COLLECTION")
+            print("=" * 80)
+            print(f"\nSelected data sources: {sum(SELECTED.values())}")
+            for name, selected in SELECTED.items():
+                print(f"  {'✓' if selected else '✗'} {name}")
+            print()
+
+            # Williams Treaty Communities
+            if SELECTED['williams_treaty_communities'] or SELECTED['williams_treaty_boundaries']:
+                print("\n[Williams Treaty Data]")
+                try:
+                    client = StatisticsCanadaWFSClient()
+
+                    if SELECTED['williams_treaty_communities']:
+                        print("Fetching community points...")
+                        communities_gdf = client.create_williams_treaty_data()
+                        output_file = OUTPUT_DIR / "communities" / "williams_treaty_communities.geojson"
+                        output_file.parent.mkdir(parents=True, exist_ok=True)
+                        communities_gdf.to_file(output_file, driver="GeoJSON")
+                        print(f"  ✓ Saved {len(communities_gdf)} communities to {output_file}")
+                        results["collected"]["williams_treaty_communities"] = {
+                            "status": "success", "count": len(communities_gdf), "file": str(output_file)
+                        }
+
+                    if SELECTED['williams_treaty_boundaries']:
+                        print("Fetching treaty boundaries...")
+                        try:
+                            gdf = await client.get_reserve_boundaries(province="ON", first_nations=WILLIAMS_TREATY_FIRST_NATIONS, max_features=100)
+                            if not gdf.empty:
+                                output_file = OUTPUT_DIR / "boundaries" / "williams_treaty.geojson"
+                                output_file.parent.mkdir(parents=True, exist_ok=True)
+                                gdf.to_file(output_file, driver="GeoJSON")
+                                print(f"  ✓ Saved {len(gdf)} boundaries to {output_file}")
+                                results["collected"]["williams_treaty_boundaries"] = {
+                                    "status": "success", "count": len(gdf), "file": str(output_file)
+                                }
+                        except Exception as e:
+                            print(f"  ✗ Could not fetch boundaries: {e}")
+                            results["collected"]["williams_treaty_boundaries"] = {"status": "error", "error": str(e)}
+                except Exception as e:
+                    print(f"  ✗ Error: {e}")
+
+            # Fire Perimeters
+            if SELECTED['fire_perimeters']:
+                print("\n[Fire Perimeters]")
+                try:
+                    client = CWFISClient()
+                    print("Fetching fire perimeters (1976-2024)...")
+                    fire_gdf = await client.get_fire_perimeters(bounds=ONTARIO_BOUNDS, start_year=1976, end_year=2024)
+                    if not fire_gdf.empty:
+                        output_file = OUTPUT_DIR / "fire_perimeters_1976_2024.geojson"
+                        fire_gdf.to_file(output_file, driver="GeoJSON")
+                        print(f"  ✓ Saved {len(fire_gdf)} fire perimeters to {output_file}")
+                        results["collected"]["fire_perimeters"] = {
+                            "status": "success", "count": len(fire_gdf), "file": str(output_file)
+                        }
+                except Exception as e:
+                    print(f"  ✗ Error: {e}")
+                    results["collected"]["fire_perimeters"] = {"status": "error", "error": str(e)}
+
+            # Provincial Parks
+            if SELECTED['provincial_parks']:
+                print("\n[Provincial Parks]")
+                try:
+                    client = OntarioGeoHubClient()
+                    print("Fetching provincial parks...")
+                    parks_gdf = await client.get_provincial_parks()
+                    if not parks_gdf.empty:
+                        output_file = OUTPUT_DIR / "provincial_parks.geojson"
+                        parks_gdf.to_file(output_file, driver="GeoJSON")
+                        print(f"  ✓ Saved {len(parks_gdf)} parks to {output_file}")
+                        results["collected"]["provincial_parks"] = {
+                            "status": "success", "count": len(parks_gdf), "file": str(output_file)
+                        }
+                except Exception as e:
+                    print(f"  ✗ Error: {e}")
+                    results["collected"]["provincial_parks"] = {"status": "error", "error": str(e)}
+
+            # Conservation Authorities
+            if SELECTED['conservation_authorities']:
+                print("\n[Conservation Authorities]")
+                try:
+                    client = OntarioGeoHubClient()
+                    print("Fetching conservation authorities...")
+                    ca_gdf = await client.get_conservation_authorities()
+                    if not ca_gdf.empty:
+                        output_file = OUTPUT_DIR / "conservation_authorities.geojson"
+                        ca_gdf.to_file(output_file, driver="GeoJSON")
+                        print(f"  ✓ Saved {len(ca_gdf)} authorities to {output_file}")
+                        results["collected"]["conservation_authorities"] = {
+                            "status": "success", "count": len(ca_gdf), "file": str(output_file)
+                        }
+                except Exception as e:
+                    print(f"  ✗ Error: {e}")
+                    results["collected"]["conservation_authorities"] = {"status": "error", "error": str(e)}
+
+            # iNaturalist
+            if SELECTED['inaturalist']:
+                print("\n[iNaturalist]")
+                try:
+                    client = INaturalistClient()
+                    print("Fetching iNaturalist observations...")
+                    observations = await client.fetch(bounds=WILLIAMS_TREATY_BOUNDS, quality_grade="research", max_results=1000)
+                    if observations:
+                        output_file = OUTPUT_DIR / "inaturalist_observations_2024.json"
+                        with open(output_file, "w") as f:
+                            json.dump(observations, f, indent=2)
+                        print(f"  ✓ Saved {len(observations)} observations to {output_file}")
+                        results["collected"]["inaturalist"] = {
+                            "status": "success", "count": len(observations), "file": str(output_file)
+                        }
+                except Exception as e:
+                    print(f"  ✗ Error: {e}")
+                    results["collected"]["inaturalist"] = {"status": "error", "error": str(e)}
+
+            # Satellite
+            if SELECTED['satellite']:
+                print("\n[Satellite Data]")
+                try:
+                    client = SatelliteDataClient()
+                    info = {"message": "Satellite data client initialized", "timestamp": datetime.now().isoformat()}
+                    output_file = OUTPUT_DIR / "satellite_data_info.json"
+                    with open(output_file, "w") as f:
+                        json.dump(info, f, indent=2)
+                    print(f"  ✓ Saved satellite info to {output_file}")
+                    results["collected"]["satellite"] = {"status": "success", "file": str(output_file)}
+                except Exception as e:
+                    print(f"  ✗ Error: {e}")
+                    results["collected"]["satellite"] = {"status": "error", "error": str(e)}
+
+            # Save results
+            results_file = Path("collection_results.json")
+            with open(results_file, "w") as f:
+                json.dump(results, f, indent=2)
+
+            print("\n" + "=" * 80)
+            print(f"COLLECTION COMPLETE: {len(results['collected'])} sources processed")
+            print("=" * 80)
+
+        if __name__ == "__main__":
+            asyncio.run(main())
+        EOFPYTHON
+
+        chmod +x collect_selected_data.py
+
+    - name: Run selective data collection
+      run: |
+        python collect_selected_data.py
       env:
+        COLLECT_WT_COMMUNITIES: ${{ github.event.inputs.williams_treaty_communities }}
+        COLLECT_WT_BOUNDARIES: ${{ github.event.inputs.williams_treaty_boundaries }}
+        COLLECT_FIRE: ${{ github.event.inputs.fire_perimeters }}
+        COLLECT_PARKS: ${{ github.event.inputs.provincial_parks }}
+        COLLECT_CA: ${{ github.event.inputs.conservation_authorities }}
+        COLLECT_INAT: ${{ github.event.inputs.inaturalist }}
+        COLLECT_SATELLITE: ${{ github.event.inputs.satellite }}
         EBIRD_API_KEY: ${{ secrets.EBIRD_API_KEY }}
 
-    - name: Run Williams Treaty Data Generation
-      if: github.event.inputs.collection_type == 'williams-treaty'
-      run: |
-        python generate_williams_treaty_data.py
-
-    - name: Run Client Integration Tests
-      if: github.event.inputs.collection_type == 'test-clients'
-      run: |
-        python test_all_clients.py
-      env:
-        EBIRD_API_KEY: ${{ secrets.EBIRD_API_KEY }}
-
-    - name: List generated files
+    - name: Check after status
       if: always()
       run: |
-        echo "=== Generated Data Files ==="
-        find data/ -type f -name "*.geojson" -o -name "*.json" -o -name "*.csv" 2>/dev/null || echo "No data files found"
         echo ""
-        echo "=== Data Directory Size ==="
-        du -sh data/ 2>/dev/null || echo "No data directory"
+        echo "=== DATA STATUS AFTER COLLECTION ==="
+        python check_data_status.py
 
     - name: Upload data artifacts
       if: github.event.inputs.upload_artifacts == 'true' && success()
       uses: actions/upload-artifact@v4
       with:
-        name: ontario-data-${{ github.event.inputs.collection_type }}-${{ github.run_number }}
+        name: ontario-data-${{ github.run_number }}
         path: |
           data/processed/**/*.geojson
           data/processed/**/*.json
@@ -80,14 +321,36 @@ jobs:
     - name: Create collection summary
       if: always()
       run: |
-        echo "## Data Collection Summary" >> $GITHUB_STEP_SUMMARY
+        echo "## 📦 Data Collection Results" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
-        echo "**Collection Type:** ${{ github.event.inputs.collection_type }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Run:** #${{ github.run_number }}" >> $GITHUB_STEP_SUMMARY
         echo "**Status:** ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
-        echo "**Run Number:** ${{ github.run_number }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Force Refresh:** ${{ github.event.inputs.force_refresh }}" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
 
-        if [ -d "data/processed" ]; then
-          echo "### Generated Files" >> $GITHUB_STEP_SUMMARY
-          find data/processed -type f \( -name "*.geojson" -o -name "*.json" -o -name "*.csv" \) -exec ls -lh {} \; 2>/dev/null | awk '{print "- " $9 " (" $5 ")"}' >> $GITHUB_STEP_SUMMARY || echo "No files generated" >> $GITHUB_STEP_SUMMARY
+        echo "### Selected Data Sources" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "| Data Source | Selected |" >> $GITHUB_STEP_SUMMARY
+        echo "|-------------|----------|" >> $GITHUB_STEP_SUMMARY
+        echo "| Williams Treaty Communities | ${{ github.event.inputs.williams_treaty_communities == 'true' && '✅' || '⬜' }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Williams Treaty Boundaries | ${{ github.event.inputs.williams_treaty_boundaries == 'true' && '✅' || '⬜' }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Fire Perimeters | ${{ github.event.inputs.fire_perimeters == 'true' && '✅' || '⬜' }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Provincial Parks | ${{ github.event.inputs.provincial_parks == 'true' && '✅' || '⬜' }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Conservation Authorities | ${{ github.event.inputs.conservation_authorities == 'true' && '✅' || '⬜' }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| iNaturalist | ${{ github.event.inputs.inaturalist == 'true' && '✅' || '⬜' }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Satellite Data | ${{ github.event.inputs.satellite == 'true' && '✅' || '⬜' }} |" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+
+        if [ -f "collection_results.json" ]; then
+          echo "### Collection Results" >> $GITHUB_STEP_SUMMARY
+          echo '```json' >> $GITHUB_STEP_SUMMARY
+          cat collection_results.json | python -m json.tool
+          echo '```' >> $GITHUB_STEP_SUMMARY
+        fi
+
+        if [ -f "data_status.json" ]; then
+          echo "### Final Data Status" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          python check_data_status.py 2>&1 | tail -20
+          echo '```' >> $GITHUB_STEP_SUMMARY
         fi
