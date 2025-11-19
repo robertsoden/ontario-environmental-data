@@ -206,18 +206,21 @@ class WaterAdvisoriesClient(BaseClient):
 
 
 class StatisticsCanadaWFSClient(BaseClient):
-    """Client for Statistics Canada WFS geospatial services.
+    """Client for Natural Resources Canada Aboriginal Lands REST API.
 
-    Provides access to First Nations reserve boundaries and other
-    Census geographic data via OGC Web Feature Service (WFS).
+    Provides access to First Nations reserve boundaries via the NRCan
+    Aboriginal Lands of Canada Legislative Boundaries service.
 
-    WFS URL: https://geo.statcan.gc.ca/geoserver/census-recensement/wfs
+    Note: Previously used Statistics Canada WFS (now deprecated/unavailable).
+    Updated to use NRCan ESRI REST API which provides Indian Reserve polygons.
+
+    API URL: https://proxyinternet.nrcan-rncan.gc.ca/arcgis/rest/services/CLSS-SATC/CLSS_Administrative_Boundaries/MapServer
     """
 
-    WFS_URL = "https://geo.statcan.gc.ca/geoserver/census-recensement/wfs"
+    # NRCan ESRI REST endpoint for Aboriginal Lands
+    REST_URL = "https://proxyinternet.nrcan-rncan.gc.ca/arcgis/rest/services/CLSS-SATC/CLSS_Administrative_Boundaries/MapServer/0/query"
 
-    # Layer names
-    INDIGENOUS_RESERVES_LAYER = "census-recensement:lir_000a21a_e"
+    # Layer 0 contains Aboriginal Lands (including Indian Reserves)
 
     def __init__(self, rate_limit: int = 60):
         """Initialize Statistics Canada WFS client.
@@ -249,40 +252,38 @@ class StatisticsCanadaWFSClient(BaseClient):
             ...     first_nations=["Curve Lake First Nation"]
             ... )
         """
-        logger.info("Fetching First Nations reserve boundaries from Stats Canada")
+        logger.info("Fetching First Nations reserve boundaries from NRCan")
 
         async with aiohttp.ClientSession() as session:
             await self._rate_limit_wait()
 
-            # Build WFS GetFeature request
-            params = {
-                "service": "WFS",
-                "version": "2.0.0",
-                "request": "GetFeature",
-                "typeName": self.INDIGENOUS_RESERVES_LAYER,
-                "outputFormat": "application/json",
-                "srsName": "EPSG:4326",
-                "count": max_features,
-            }
+            # Build WHERE clause for ESRI REST query
+            where_clauses = ["distributionType='IR'"]  # Filter for Indian Reserves only
 
-            # Add CQL filter if needed
-            filters = []
             if province:
-                filters.append(f"PRCODE='{province}'")
+                where_clauses.append(f"jurisdiction='{province}'")
 
             if first_nations:
-                # Build filter for First Nation names
-                name_filters = " OR ".join(
-                    [f"IRNAME='{name}'" for name in first_nations]
-                )
-                filters.append(f"({name_filters})")
+                # Build filter for First Nation names (search in adminAreaNameEng)
+                name_filters = " OR ".join([
+                    f"adminAreaNameEng LIKE '%{name}%'" for name in first_nations
+                ])
+                where_clauses.append(f"({name_filters})")
 
-            if filters:
-                params["CQL_FILTER"] = " AND ".join(filters)
+            where_clause = " AND ".join(where_clauses)
+
+            # Build ESRI REST query parameters
+            params = {
+                "where": where_clause,
+                "outFields": "*",
+                "returnGeometry": "true",
+                "f": "geojson",
+                "resultRecordCount": max_features,
+            }
 
             try:
                 async with session.get(
-                    self.WFS_URL, params=params, timeout=60
+                    self.REST_URL, params=params, timeout=60
                 ) as response:
                     if response.status != 200:
                         logger.warning(f"WFS request failed: HTTP {response.status}")
@@ -300,7 +301,9 @@ class StatisticsCanadaWFSClient(BaseClient):
                         return gdf
 
                     # Ensure CRS
-                    if gdf.crs != "EPSG:4326":
+                    if gdf.crs is None:
+                        gdf.set_crs("EPSG:4326", inplace=True)
+                    elif gdf.crs != "EPSG:4326":
                         gdf = gdf.to_crs("EPSG:4326")
 
                     logger.info(f"Fetched {len(gdf)} reserve boundaries")
@@ -334,11 +337,15 @@ class StatisticsCanadaWFSClient(BaseClient):
         reserves = []
         for _, row in gdf.iterrows():
             reserve = {
-                "reserve_name": row.get("IRNAME", ""),
-                "first_nation": row.get("IRNAME", ""),
-                "province": row.get("PRCODE", province),
+                "reserve_name": row.get("adminAreaNameEng", ""),
+                "reserve_id": row.get("adminAreaId", ""),
+                "first_nation": row.get("adminAreaNameEng", ""),
+                "province": row.get("jurisdiction", province),
+                "distribution_type": row.get("distributionTypeEng", "Indian Reserve"),
+                "accuracy": row.get("absoluteAccuracyEng", ""),
                 "geometry": gpd.GeoSeries([row.geometry]).to_json(),
-                "data_source": "Statistics Canada",
+                "data_source": "Natural Resources Canada - Aboriginal Lands of Canada",
+                "web_reference": row.get("webReference", ""),
             }
             reserves.append(reserve)
 

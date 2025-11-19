@@ -28,11 +28,11 @@ class OntarioGeoHubClient(BaseClient):
     Base URL: https://geohub.lio.gov.on.ca/
     """
 
-    # Ontario Parks from LIO Topographic MapServer
-    PARKS_URL = "https://ws.lioservices.lrc.gov.on.ca/arcgis1071a/rest/services/LIO_Cartographic/LIO_Topographic/MapServer/9/query"
+    # Ontario Parks from LIO Open Data MapServer (updated 2024)
+    PARKS_URL = "https://ws.lioservices.lrc.gov.on.ca/arcgis2/rest/services/LIO_OPEN_DATA/LIO_Open03/MapServer/4/query"
 
-    # Conservation Authorities from MOE MapServer
-    CONSERVATION_AUTHORITIES_URL = "https://ws.lioservices.lrc.gov.on.ca/arcgis1071a/rest/services/MOE/Conservation_Authorities/MapServer/0/query"
+    # Conservation Authorities from LIO Open Data MapServer (updated 2024)
+    CONSERVATION_AUTHORITIES_URL = "https://ws.lioservices.lrc.gov.on.ca/arcgis2/rest/services/LIO_OPEN_DATA/LIO_Open03/MapServer/11/query"
 
     def __init__(self, rate_limit: int = 60):
         """Initialize Ontario GeoHub client.
@@ -68,14 +68,24 @@ class OntarioGeoHubClient(BaseClient):
                 "where": "1=1",  # Get all features
                 "outFields": "*",
                 "f": "geojson",
+                "returnGeometry": "true",
             }
 
-            # Add spatial filter if bounds provided
+            # Add spatial filter if bounds provided (skip for very large areas)
+            # Note: LIO service covers Ontario only, so no bbox needed for province-wide queries
             if bounds:
                 swlat, swlng, nelat, nelng = bounds
-                params["geometry"] = f"{swlng},{swlat},{nelng},{nelat}"
-                params["geometryType"] = "esriGeometryEnvelope"
-                params["spatialRel"] = "esriSpatialRelIntersects"
+                bbox_area = (nelat - swlat) * (nelng - swlng)
+
+                # Skip bbox for very large areas (>1000 sq degrees ≈ province-wide)
+                # to avoid server errors with complex queries
+                if bbox_area < 1000:
+                    params["geometry"] = f"{swlng},{swlat},{nelng},{nelat}"
+                    params["geometryType"] = "esriGeometryEnvelope"
+                    params["spatialRel"] = "esriSpatialRelIntersects"
+                    logger.info(f"  Using bbox filter for area: {bbox_area:.1f} sq degrees")
+                else:
+                    logger.info("  Skipping bbox filter for province-wide query (fetching all parks)")
 
             try:
                 async with session.get(
@@ -88,22 +98,40 @@ class OntarioGeoHubClient(BaseClient):
                         )
 
                     content = await response.text()
+
+                    # Check if response is HTML error page instead of GeoJSON
+                    if content.strip().startswith('<') or 'html' in content[:100].lower():
+                        # Extract error message from HTML if possible
+                        if "Could not access any server machines" in content:
+                            raise DataSourceError("ArcGIS server error: Could not access server machines")
+                        elif "errorLabel" in content:
+                            raise DataSourceError("ArcGIS server returned an error page")
+                        else:
+                            raise DataSourceError("Server returned HTML instead of GeoJSON")
+
                     gdf = gpd.read_file(io.StringIO(content))
 
                     if gdf.empty:
                         logger.warning("No parks found")
                         return gdf
 
-                    # Standardize column names
+                    # Standardize column names (updated for LIO_OPEN_DATA service 2024)
                     column_mapping = {
-                        "PARK_NAME": "name",
+                        "PROTECTED_AREA_NAME_ENG": "name",
+                        "PROTECTED_AREA_NAME_FR": "name_fr",
+                        "PARK_NAME": "name",  # Fallback for older data
                         "OFFICIAL_NAME": "official_name",
                         "ONT_PARK_ID": "park_id",
-                        "REGULATION": "designation",
+                        "TYPE_ENG": "designation",
+                        "STATUS_ENG": "status",
+                        "REGULATION": "designation",  # Fallback
+                        "IUCN_CATEGORY": "iucn_category",
                         "AREA_HA": "hectares",
                         "MANAGEMENT_UNIT": "managing_authority",
                         "PARK_CLASS": "park_class",
                         "ZONE_CLASS": "zone_class",
+                        "REGULATION_DATE": "regulation_date",
+                        "REGULATION_NUMBER": "regulation_number",
                     }
 
                     rename_dict = {
@@ -177,13 +205,22 @@ class OntarioGeoHubClient(BaseClient):
                 "where": "1=1",
                 "outFields": "*",
                 "f": "geojson",
+                "returnGeometry": "true",
             }
 
+            # Add spatial filter if bounds provided (skip for very large areas)
             if bounds:
                 swlat, swlng, nelat, nelng = bounds
-                params["geometry"] = f"{swlng},{swlat},{nelng},{nelat}"
-                params["geometryType"] = "esriGeometryEnvelope"
-                params["spatialRel"] = "esriSpatialRelIntersects"
+                bbox_area = (nelat - swlat) * (nelng - swlng)
+
+                # Skip bbox for very large areas to avoid server errors
+                if bbox_area < 1000:
+                    params["geometry"] = f"{swlng},{swlat},{nelng},{nelat}"
+                    params["geometryType"] = "esriGeometryEnvelope"
+                    params["spatialRel"] = "esriSpatialRelIntersects"
+                    logger.info(f"  Using bbox filter for area: {bbox_area:.1f} sq degrees")
+                else:
+                    logger.info("  Skipping bbox filter for province-wide query (fetching all conservation authorities)")
 
             try:
                 async with session.get(
@@ -201,6 +238,20 @@ class OntarioGeoHubClient(BaseClient):
                     if gdf.empty:
                         logger.warning("No conservation authorities found")
                         return gdf
+
+                    # Standardize column names (updated for LIO_OPEN_DATA service 2024)
+                    column_mapping = {
+                        "LEGAL_NAME": "name",
+                        "EFFECTIVE_DATE": "effective_date",
+                        "EXPIRY_DATE": "expiry_date",
+                    }
+
+                    rename_dict = {
+                        old: new for old, new in column_mapping.items()
+                        if old in gdf.columns
+                    }
+                    if rename_dict:
+                        gdf = gdf.rename(columns=rename_dict)
 
                     # Ensure CRS
                     if gdf.crs != "EPSG:4326":
