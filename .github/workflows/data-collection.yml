@@ -3,13 +3,22 @@ name: Data Collection
 on:
   workflow_dispatch:
     inputs:
+      # Mode selection
+      mode:
+        description: '🎯 Mode: Check status OR Collect data'
+        required: true
+        type: choice
+        options:
+          - collect
+          - status-only
+        default: status-only
       # Data source selection
       williams_treaty_communities:
         description: '☐ Williams Treaty Communities (community points)'
         type: boolean
         default: false
       williams_treaty_boundaries:
-        description: '☐ Williams Treaty Boundaries (territory polygon)'
+        description: '☐ Williams Treaty Boundaries (territory polygon) [✓ EXISTS]'
         type: boolean
         default: false
       fire_perimeters:
@@ -77,6 +86,7 @@ jobs:
   collect-data:
     name: Collect Selected Data
     needs: check-status
+    if: github.event.inputs.mode == 'collect'
     runs-on: ubuntu-latest
     timeout-minutes: 60
 
