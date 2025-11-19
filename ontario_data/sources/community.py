@@ -284,7 +284,7 @@ class CommunityWellBeingClient(BaseClient):
             GeoDataFrame with point geometries
         """
         if not communities:
-            return gpd.GeoDataFrame()
+            return gpd.GeoDataFrame(geometry=[], crs="EPSG:4326")
 
         df = pd.DataFrame(communities)
 
@@ -454,7 +454,7 @@ class InfrastructureClient(BaseClient):
             GeoDataFrame with Point geometries
         """
         if not projects:
-            return gpd.GeoDataFrame()
+            return gpd.GeoDataFrame(geometry=[], crs="EPSG:4326")
 
         df = pd.DataFrame(projects)
         geometry = [
