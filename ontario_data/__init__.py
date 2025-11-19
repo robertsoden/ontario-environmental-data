@@ -69,6 +69,17 @@ from ontario_data.sources.satellite import SatelliteDataClient
 # Utilities
 from ontario_data.utils import filter_by_bounds, get_bounds_from_aoi, point_in_bounds
 
+# Validation
+from ontario_data.validation import (
+    ValidationError,
+    validate_collection_results,
+    validate_data_file,
+    validate_file_exists,
+    validate_geojson_file,
+    validate_json_file,
+    validate_json_observations,
+)
+
 __all__ = [
     # Version
     "__version__",
@@ -110,4 +121,12 @@ __all__ = [
     "filter_by_bounds",
     "get_bounds_from_aoi",
     "point_in_bounds",
+    # Validation
+    "ValidationError",
+    "validate_collection_results",
+    "validate_data_file",
+    "validate_file_exists",
+    "validate_geojson_file",
+    "validate_json_file",
+    "validate_json_observations",
 ]
