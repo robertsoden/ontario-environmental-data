@@ -125,9 +125,22 @@ jobs:
                   <li><a href="processed/boundaries/">processed/boundaries/</a> - Boundary files</li>
               </ul>
 
+              <h2>Data Catalog & Configuration</h2>
+              <p>Use these files to integrate with the Williams Treaties map:</p>
+              <ul>
+                  <li><a href="catalog.json">catalog.json</a> - List of available and unavailable datasets</li>
+                  <li><a href="layers.json">layers.json</a> - MapLibre layer configuration (JSON)</li>
+                  <li><a href="layers.yaml">layers.yaml</a> - MapLibre layer configuration (YAML)</li>
+              </ul>
+
               <h2>Usage</h2>
               <p>Access data files directly via URL:</p>
               <pre><code>https://robertsoden.github.io/ontario-environmental-data/processed/boundaries/williams_treaty.geojson</code></pre>
+
+              <p>Or fetch the catalog programmatically:</p>
+              <pre><code>fetch('https://robertsoden.io/ontario-environmental-data/catalog.json')
+  .then(r => r.json())
+  .then(data => console.log(data.available_layers))</code></pre>
 
               <h2>Related Projects</h2>
               <ul>
@@ -146,6 +159,203 @@ jobs:
           mkdir -p data/processed/boundaries
           mkdir -p data/processed/communities
           echo "Directory structure created"
+
+      - name: Set up Python for catalog generation
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install PyYAML
+        run: pip install pyyaml
+
+      - name: Generate data catalog and layer configurations
+        run: |
+          cat > generate_catalog.py << 'EOFPYTHON'
+          import json
+          import yaml
+          from pathlib import Path
+          from datetime import datetime
+
+          # Define expected datasets with metadata
+          DATASETS = {
+              "williams_treaty_boundaries": {
+                  "path": "processed/boundaries/williams_treaty.geojson",
+                  "type": "geojson",
+                  "layer_type": "fill",
+                  "name": "Williams Treaty Territories",
+                  "description": "Boundaries of Williams Treaty First Nations territories",
+                  "source": "Statistics Canada",
+                  "paint": {
+                      "fill-color": "#4a90e2",
+                      "fill-opacity": 0.3,
+                      "fill-outline-color": "#2c5282"
+                  },
+                  "layout": {"visibility": "visible"}
+              },
+              "williams_treaty_communities": {
+                  "path": "processed/communities/williams_treaty_communities.geojson",
+                  "type": "geojson",
+                  "layer_type": "circle",
+                  "name": "Williams Treaty Communities",
+                  "description": "Community locations within Williams Treaty territories",
+                  "source": "Statistics Canada",
+                  "paint": {
+                      "circle-color": "#e74c3c",
+                      "circle-radius": 8,
+                      "circle-stroke-width": 2,
+                      "circle-stroke-color": "#ffffff"
+                  },
+                  "layout": {"visibility": "visible"}
+              },
+              "fire_perimeters": {
+                  "path": "processed/fire_perimeters_1976_2024.geojson",
+                  "type": "geojson",
+                  "layer_type": "fill",
+                  "name": "Fire Perimeters (1976-2024)",
+                  "description": "Historical wildfire perimeters in Ontario",
+                  "source": "Canadian Wildfire Information System",
+                  "paint": {
+                      "fill-color": "#ff6b6b",
+                      "fill-opacity": 0.4,
+                      "fill-outline-color": "#c92a2a"
+                  },
+                  "layout": {"visibility": "none"}
+              },
+              "provincial_parks": {
+                  "path": "processed/provincial_parks.geojson",
+                  "type": "geojson",
+                  "layer_type": "fill",
+                  "name": "Provincial Parks",
+                  "description": "Ontario provincial parks and protected areas",
+                  "source": "Ontario GeoHub",
+                  "paint": {
+                      "fill-color": "#51cf66",
+                      "fill-opacity": 0.3,
+                      "fill-outline-color": "#2b8a3e"
+                  },
+                  "layout": {"visibility": "none"}
+              },
+              "conservation_authorities": {
+                  "path": "processed/conservation_authorities.geojson",
+                  "type": "geojson",
+                  "layer_type": "fill",
+                  "name": "Conservation Authorities",
+                  "description": "Conservation authority boundaries in Ontario",
+                  "source": "Ontario GeoHub",
+                  "paint": {
+                      "fill-color": "#4dabf7",
+                      "fill-opacity": 0.2,
+                      "fill-outline-color": "#1971c2"
+                  },
+                  "layout": {"visibility": "none"}
+              },
+              "inaturalist": {
+                  "path": "processed/inaturalist_observations_2024.json",
+                  "type": "json",
+                  "layer_type": "circle",
+                  "name": "iNaturalist Observations",
+                  "description": "Biodiversity observations from iNaturalist",
+                  "source": "iNaturalist",
+                  "paint": {
+                      "circle-color": "#a9e34b",
+                      "circle-radius": 6,
+                      "circle-stroke-width": 1,
+                      "circle-stroke-color": "#5c940d"
+                  },
+                  "layout": {"visibility": "none"}
+              }
+          }
+
+          # Base URL for GitHub Pages
+          BASE_URL = "https://robertsoden.io/ontario-environmental-data"
+
+          # Scan for available datasets
+          catalog = {
+              "generated_at": datetime.now().isoformat(),
+              "base_url": BASE_URL,
+              "available_layers": [],
+              "unavailable_layers": []
+          }
+
+          data_dir = Path("data")
+
+          for layer_id, metadata in DATASETS.items():
+              file_path = data_dir / metadata["path"]
+
+              if file_path.exists():
+                  # Dataset exists
+                  file_size = file_path.stat().st_size
+                  layer_info = {
+                      "id": layer_id,
+                      "url": f"{BASE_URL}/{metadata['path']}",
+                      "local_path": metadata["path"],
+                      "name": metadata["name"],
+                      "description": metadata["description"],
+                      "source": metadata["source"],
+                      "type": metadata["type"],
+                      "layer_type": metadata["layer_type"],
+                      "size_bytes": file_size,
+                      "size_human": f"{file_size / 1024:.1f} KB" if file_size < 1024*1024 else f"{file_size / (1024*1024):.1f} MB",
+                      "paint": metadata.get("paint", {}),
+                      "layout": metadata.get("layout", {})
+                  }
+                  catalog["available_layers"].append(layer_info)
+              else:
+                  # Dataset missing
+                  catalog["unavailable_layers"].append({
+                      "id": layer_id,
+                      "name": metadata["name"],
+                      "expected_path": metadata["path"],
+                      "description": metadata["description"],
+                      "source": metadata["source"]
+                  })
+
+          # Write catalog as JSON
+          with open(data_dir / "catalog.json", "w") as f:
+              json.dump(catalog, f, indent=2)
+
+          # Generate YAML configuration for map
+          map_config = {
+              "version": "1.0",
+              "data_source": BASE_URL,
+              "layers": []
+          }
+
+          for layer in catalog["available_layers"]:
+              map_config["layers"].append({
+                  "id": layer["id"],
+                  "name": layer["name"],
+                  "description": layer["description"],
+                  "source": {
+                      "type": "geojson",
+                      "data": layer["url"]
+                  },
+                  "type": layer["layer_type"],
+                  "paint": layer["paint"],
+                  "layout": layer["layout"]
+              })
+
+          # Write map configuration as YAML
+          with open(data_dir / "layers.yaml", "w") as f:
+              yaml.dump(map_config, f, default_flow_style=False, sort_keys=False)
+
+          # Also write as JSON for easier consumption
+          with open(data_dir / "layers.json", "w") as f:
+              json.dump(map_config, f, indent=2)
+
+          # Print summary
+          print(f"✓ Found {len(catalog['available_layers'])} available datasets")
+          print(f"✗ Missing {len(catalog['unavailable_layers'])} expected datasets")
+          print("\nAvailable layers:")
+          for layer in catalog['available_layers']:
+              print(f"  - {layer['name']} ({layer['size_human']})")
+          if catalog['unavailable_layers']:
+              print("\nUnavailable layers:")
+              for layer in catalog['unavailable_layers']:
+                  print(f"  - {layer['name']} (expected at {layer['expected_path']})")
+          EOFPYTHON
+
+          python generate_catalog.py
 
       - name: Generate directory index files
         run: |
