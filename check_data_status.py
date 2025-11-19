@@ -131,12 +131,90 @@ def check_data_status():
     return status
 
 
+def check_satellite_data_status():
+    """Check status of satellite data processing."""
+    registry_file = Path("satellite_data_registry.json")
+
+    if not registry_file.exists():
+        return {"status": "registry_not_found", "datasets": {}}
+
+    with open(registry_file) as f:
+        registry = json.load(f)
+
+    satellite_status = {"datasets": {}}
+
+    print("\n" + "=" * 80)
+    print("SATELLITE DATA STATUS")
+    print("=" * 80)
+    print()
+
+    for dataset_name, dataset_info in registry.get("datasets", {}).items():
+        print(f"\n{dataset_name.upper()}:")
+        print("-" * 40)
+
+        versions = dataset_info.get("versions", {})
+
+        if not versions:
+            print("  ✗ No processed versions available")
+            satellite_status["datasets"][dataset_name] = {
+                "status": "not_processed",
+                "versions": [],
+            }
+            continue
+
+        # Show available versions
+        for year, version_info in sorted(versions.items(), reverse=True):
+            status_icon = "✓" if version_info.get("status") == "success" else "✗"
+            processed_date = version_info.get("processed_date", "unknown")
+            if processed_date != "unknown":
+                processed_date = datetime.fromisoformat(processed_date).strftime(
+                    "%Y-%m-%d"
+                )
+
+            print(f"  {status_icon} {year:8} (processed: {processed_date})")
+
+            # Check if tile file exists
+            tile_file = version_info.get("files", {}).get("tiles")
+            if tile_file and Path(tile_file).exists():
+                size_mb = Path(tile_file).stat().st_size / (1024 * 1024)
+                print(f"      Tiles: {size_mb:.1f} MB")
+
+        satellite_status["datasets"][dataset_name] = {
+            "status": "processed",
+            "versions": list(versions.keys()),
+            "latest": max(versions.keys()) if versions else None,
+        }
+
+    print("\n" + "=" * 80)
+    print(
+        f"SATELLITE SUMMARY: {len([d for d in satellite_status['datasets'].values() if d['status'] == 'processed'])} datasets processed"
+    )
+    print("=" * 80)
+
+    return satellite_status
+
+
 if __name__ == "__main__":
+    # Check vector/tabular data
     status = check_data_status()
+
+    # Check satellite data
+    satellite_status = check_satellite_data_status()
+
+    # Combine results
+    combined_status = {
+        "timestamp": status["timestamp"],
+        "vector_data": {
+            "available": status["available"],
+            "missing": status["missing"],
+            "summary": status["summary"],
+        },
+        "satellite_data": satellite_status,
+    }
 
     # Save status to JSON for CI/CD
     status_file = Path("data_status.json")
     with open(status_file, "w") as f:
-        json.dump(status, f, indent=2)
+        json.dump(combined_status, f, indent=2)
 
     print(f"\nStatus saved to: {status_file}")
