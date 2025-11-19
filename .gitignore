@@ -64,5 +64,12 @@ site/
 *.geojson
 !data/processed/boundaries/williams_treaty.geojson
 !examples/data/
+!satellite_data_registry.json
 data/
 data_status.json
+
+# Satellite data (very large, use cloud storage)
+*.tif
+*.tiff
+*.pmtiles
+*.mbtiles
