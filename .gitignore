@@ -65,3 +65,4 @@ site/
 !data/processed/boundaries/williams_treaty.geojson
 !examples/data/
 data/
+data_status.json
