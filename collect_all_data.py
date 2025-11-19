@@ -4,10 +4,16 @@ Ontario Environmental Data - Full Data Collection Script
 
 This script downloads and processes all available data sources.
 Creates a complete dataset ready for use in ONW and williams-treaties projects.
+
+Exit codes:
+  0 - Success (all data sources collected and validated)
+  1 - Critical failure (one or more critical data sources failed)
+  2 - Partial success (some non-critical sources failed, but critical ones succeeded)
 """
 
 import asyncio
 import json
+import sys
 from datetime import datetime
 from pathlib import Path
 
@@ -18,6 +24,8 @@ from ontario_data import (
     OntarioGeoHubClient,
     SatelliteDataClient,
     StatisticsCanadaWFSClient,
+    validate_collection_results,
+    validate_data_file,
 )
 
 # Configuration
@@ -32,6 +40,13 @@ ONTARIO_BOUNDS = (41.7, -95.2, 56.9, -74.3)  # (swlat, swlng, nelat, nelng)
 
 # Williams Treaty territory bounds (for reference)
 WILLIAMS_TREATY_BOUNDS = (43.8, -80.2, 45.2, -78.0)  # (swlat, swlng, nelat, nelng)
+
+# Define which data sources are critical (must succeed)
+# Critical sources are those that are fundamental to the library's purpose
+CRITICAL_SOURCES = {
+    "williams_treaty_communities",  # Core indigenous data
+    "provincial_parks",  # Core protected areas data
+}
 
 # Create directories
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -406,14 +421,97 @@ async def collect_all_data():
     results["manual_downloads"] = manual_downloads
 
     # ==========================================================================
+    # VALIDATE COLLECTION RESULTS
+    # ==========================================================================
+    print("\n" + "=" * 80)
+    print("VALIDATING COLLECTED DATA")
+    print("=" * 80)
+
+    validation_success, validation_errors, validation_warnings = validate_collection_results(results)
+
+    # Validate individual files
+    file_validation_errors = []
+    file_validation_warnings = []
+
+    for source_name, source_info in results["sources"].items():
+        if source_info.get("status") == "success" and "file" in source_info:
+            file_path = Path(source_info["file"])
+
+            # Determine data type and validation parameters
+            if file_path.suffix == ".geojson":
+                data_type = "geojson"
+                min_records = 1
+                # Determine required fields based on source
+                if "williams_treaty" in source_name or "communities" in source_name:
+                    required_fields = ["first_nation"]
+                elif "parks" in source_name or "conservation" in source_name:
+                    required_fields = ["name"]
+                elif "fire" in source_name:
+                    required_fields = ["year"]
+                else:
+                    required_fields = None
+            elif file_path.suffix == ".json":
+                data_type = "json"
+                min_records = 1
+                required_fields = None
+            else:
+                continue  # Skip unknown file types
+
+            try:
+                file_success, file_errors, file_warnings = validate_data_file(
+                    file_path, data_type, min_records, required_fields
+                )
+                if not file_success:
+                    file_validation_errors.extend([f"{source_name}: {e}" for e in file_errors])
+                file_validation_warnings.extend([f"{source_name}: {w}" for w in file_warnings])
+            except Exception as e:
+                file_validation_errors.append(f"{source_name}: Validation failed: {e}")
+
+    # Combine all validation results
+    all_errors = validation_errors + file_validation_errors
+    all_warnings = validation_warnings + file_validation_warnings
+
+    # Print validation results
+    if all_errors:
+        print("\n❌ VALIDATION ERRORS:")
+        for error in all_errors:
+            print(f"   • {error}")
+
+    if all_warnings:
+        print("\n⚠️  VALIDATION WARNINGS:")
+        for warning in all_warnings:
+            print(f"   • {warning}")
+
+    if not all_errors and not all_warnings:
+        print("\n✅ All collected data validated successfully!")
+
+    # ==========================================================================
+    # CHECK CRITICAL SOURCES
+    # ==========================================================================
+    critical_failures = []
+    for source_name in CRITICAL_SOURCES:
+        if source_name not in results["sources"]:
+            critical_failures.append(f"{source_name}: Not collected")
+        elif results["sources"][source_name].get("status") != "success":
+            status = results["sources"][source_name].get("status", "unknown")
+            error = results["sources"][source_name].get("error", "No error message")
+            critical_failures.append(f"{source_name}: {status} - {error}")
+
+    # ==========================================================================
     # SAVE COLLECTION REPORT
     # ==========================================================================
+    results["validation"] = {
+        "errors": all_errors,
+        "warnings": all_warnings,
+        "critical_failures": critical_failures,
+    }
+
     report_file = OUTPUT_DIR / "collection_report.json"
     with open(report_file, "w") as f:
         json.dump(results, f, indent=2)
 
-    print("=" * 80)
-    print("✅ DATA COLLECTION COMPLETE")
+    print("\n" + "=" * 80)
+    print("DATA COLLECTION COMPLETE")
     print("=" * 80)
     print(f"\nCollection report saved to: {report_file}")
     print(f"End time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
@@ -427,6 +525,37 @@ async def collect_all_data():
     print(f"   • Successfully collected: {successful}/{total} data sources")
     print(f"   • Manual downloads required: {len(manual_downloads)}")
     print(f"   • Output directory: {OUTPUT_DIR.absolute()}")
+    print(f"   • Validation errors: {len(all_errors)}")
+    print(f"   • Validation warnings: {len(all_warnings)}")
+    print(f"   • Critical source failures: {len(critical_failures)}")
+
+    # Determine exit status
+    if critical_failures:
+        print("\n" + "=" * 80)
+        print("❌ CRITICAL FAILURE")
+        print("=" * 80)
+        print("\nOne or more critical data sources failed:")
+        for failure in critical_failures:
+            print(f"   • {failure}")
+        print("\nThe data collection cannot be considered successful.")
+        print("Please investigate and fix these issues before proceeding.")
+        results["exit_code"] = 1
+    elif all_errors:
+        print("\n" + "=" * 80)
+        print("⚠️  PARTIAL SUCCESS")
+        print("=" * 80)
+        print("\nSome non-critical data sources failed validation.")
+        print("Critical data sources were collected successfully.")
+        print("Review the errors above and fix if needed.")
+        results["exit_code"] = 2
+    else:
+        print("\n" + "=" * 80)
+        print("✅ COMPLETE SUCCESS")
+        print("=" * 80)
+        print("\nAll data sources collected and validated successfully!")
+        if all_warnings:
+            print("Note: There are some warnings to review.")
+        results["exit_code"] = 0
 
     print("\n🗺️  Ready for use in:")
     print("   • Ontario Nature Watch (ONW) project")
@@ -440,7 +569,7 @@ if __name__ == "__main__":
     print("\nStarting data collection...")
     print("This will download data from multiple sources.\n")
 
-    asyncio.run(collect_all_data())
+    results = asyncio.run(collect_all_data())
 
     print("\n" + "=" * 80)
     print("Next steps:")
@@ -448,3 +577,7 @@ if __name__ == "__main__":
     print("  2. Check data/processed/ for all collected files")
     print("  3. Import into your projects using the ontario_data library")
     print("=" * 80)
+
+    # Exit with appropriate code
+    exit_code = results.get("exit_code", 1)
+    sys.exit(exit_code)

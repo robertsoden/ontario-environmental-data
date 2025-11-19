@@ -48,8 +48,39 @@ jobs:
 
     - name: Run client integration tests (quick validation)
       run: |
-        timeout 300 python test_all_clients.py || echo "⚠️ Some clients may have failed - check logs"
-      continue-on-error: true
+        set -e  # Exit on any error
+        timeout 300 python test_all_clients.py
+      # Do NOT use continue-on-error - we want failures to fail the build
+
+    - name: Check if data directory exists
+      id: check_data
+      run: |
+        if [ -d "data/processed" ] && [ "$(ls -A data/processed 2>/dev/null)" ]; then
+          echo "has_data=true" >> $GITHUB_OUTPUT
+          echo "Data directory exists with files"
+        else
+          echo "has_data=false" >> $GITHUB_OUTPUT
+          echo "No data directory or empty - skipping data validation"
+        fi
+
+    - name: Validate existing data (if present)
+      if: steps.check_data.outputs.has_data == 'true'
+      run: |
+        echo "Validating existing data files..."
+        python check_data_status.py
+        # Exit code from check_data_status.py will determine if this step fails
+        # 0 = success, 1 = critical failure, 2 = partial failure (we'll allow this)
+        exit_code=$?
+        if [ $exit_code -eq 1 ]; then
+          echo "::error::Critical data validation failure"
+          exit 1
+        elif [ $exit_code -eq 2 ]; then
+          echo "::warning::Some non-critical data files have issues"
+          exit 0  # Don't fail build for non-critical issues
+        else
+          echo "All data validated successfully"
+          exit 0
+        fi
 
     - name: Validation summary
       if: always()
@@ -58,5 +89,17 @@ jobs:
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "✓ Scripts syntax validated" >> $GITHUB_STEP_SUMMARY
         echo "✓ Import checks passed" >> $GITHUB_STEP_SUMMARY
+        echo "✓ Client integration tests passed" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+
+        if [ -f "data_status.json" ]; then
+          echo "### Data Validation Results" >> $GITHUB_STEP_SUMMARY
+          echo '```json' >> $GITHUB_STEP_SUMMARY
+          cat data_status.json | python -m json.tool 2>/dev/null || echo "Could not parse data_status.json"
+          echo '```' >> $GITHUB_STEP_SUMMARY
+        else
+          echo "**Note:** No existing data to validate" >> $GITHUB_STEP_SUMMARY
+        fi
+
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "**Note:** Full data collection must be triggered manually via workflow_dispatch" >> $GITHUB_STEP_SUMMARY
