@@ -113,8 +113,8 @@ jobs:
           <body>
               <h1>Ontario Environmental Data</h1>
               <div class="info">
-                  <p><strong>Data Repository for Williams Treaties Mapping Project</strong></p>
-                  <p>This GitHub Pages site hosts processed environmental data files for the Williams Treaty Territories.</p>
+                  <p><strong>Open Environmental Data Repository for Ontario</strong></p>
+                  <p>This GitHub Pages site hosts processed environmental data files for Ontario, including treaty territories, parks, fire history, conservation areas, and biodiversity observations.</p>
                   <p>Base URL: <code>https://robertsoden.github.io/ontario-environmental-data/</code></p>
               </div>
 
@@ -219,7 +219,7 @@ jobs:
                       "fill-opacity": 0.4,
                       "fill-outline-color": "#c92a2a"
                   },
-                  "layout": {"visibility": "none"}
+                  "layout": {"visibility": "visible"}
               },
               "provincial_parks": {
                   "path": "processed/provincial_parks.geojson",
@@ -233,7 +233,7 @@ jobs:
                       "fill-opacity": 0.3,
                       "fill-outline-color": "#2b8a3e"
                   },
-                  "layout": {"visibility": "none"}
+                  "layout": {"visibility": "visible"}
               },
               "conservation_authorities": {
                   "path": "processed/conservation_authorities.geojson",
@@ -247,7 +247,7 @@ jobs:
                       "fill-opacity": 0.2,
                       "fill-outline-color": "#1971c2"
                   },
-                  "layout": {"visibility": "none"}
+                  "layout": {"visibility": "visible"}
               },
               "inaturalist": {
                   "path": "processed/inaturalist_observations_2024.json",
@@ -262,7 +262,7 @@ jobs:
                       "circle-stroke-width": 1,
                       "circle-stroke-color": "#5c940d"
                   },
-                  "layout": {"visibility": "none"}
+                  "layout": {"visibility": "visible"}
               }
           }
 
