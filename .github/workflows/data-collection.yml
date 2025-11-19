@@ -1,0 +1,93 @@
+name: Data Collection
+
+on:
+  workflow_dispatch:
+    inputs:
+      collection_type:
+        description: 'Type of data collection to run'
+        required: true
+        type: choice
+        options:
+          - full-ontario
+          - williams-treaty
+          - test-clients
+      upload_artifacts:
+        description: 'Upload generated data as artifacts'
+        required: true
+        type: boolean
+        default: true
+
+jobs:
+  collect-data:
+    name: Collect ${{ github.event.inputs.collection_type }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.11"
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e ".[dev]"
+
+    - name: Run Full Ontario Data Collection
+      if: github.event.inputs.collection_type == 'full-ontario'
+      run: |
+        python collect_all_data.py
+      env:
+        EBIRD_API_KEY: ${{ secrets.EBIRD_API_KEY }}
+
+    - name: Run Williams Treaty Data Generation
+      if: github.event.inputs.collection_type == 'williams-treaty'
+      run: |
+        python generate_williams_treaty_data.py
+
+    - name: Run Client Integration Tests
+      if: github.event.inputs.collection_type == 'test-clients'
+      run: |
+        python test_all_clients.py
+      env:
+        EBIRD_API_KEY: ${{ secrets.EBIRD_API_KEY }}
+
+    - name: List generated files
+      if: always()
+      run: |
+        echo "=== Generated Data Files ==="
+        find data/ -type f -name "*.geojson" -o -name "*.json" -o -name "*.csv" 2>/dev/null || echo "No data files found"
+        echo ""
+        echo "=== Data Directory Size ==="
+        du -sh data/ 2>/dev/null || echo "No data directory"
+
+    - name: Upload data artifacts
+      if: github.event.inputs.upload_artifacts == 'true' && success()
+      uses: actions/upload-artifact@v4
+      with:
+        name: ontario-data-${{ github.event.inputs.collection_type }}-${{ github.run_number }}
+        path: |
+          data/processed/**/*.geojson
+          data/processed/**/*.json
+          data/processed/**/*.csv
+        retention-days: 30
+        if-no-files-found: warn
+
+    - name: Create collection summary
+      if: always()
+      run: |
+        echo "## Data Collection Summary" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Collection Type:** ${{ github.event.inputs.collection_type }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Status:** ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Run Number:** ${{ github.run_number }}" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+
+        if [ -d "data/processed" ]; then
+          echo "### Generated Files" >> $GITHUB_STEP_SUMMARY
+          find data/processed -type f \( -name "*.geojson" -o -name "*.json" -o -name "*.csv" \) -exec ls -lh {} \; 2>/dev/null | awk '{print "- " $9 " (" $5 ")"}' >> $GITHUB_STEP_SUMMARY || echo "No files generated" >> $GITHUB_STEP_SUMMARY
+        fi

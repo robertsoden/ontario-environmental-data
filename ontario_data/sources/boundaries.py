@@ -14,7 +14,6 @@ from typing import Dict, List, Optional, Union
 
 import aiohttp
 import geopandas as gpd
-import pandas as pd
 
 from ontario_data.sources.base import BaseClient, DataSourceError
 
@@ -55,10 +54,7 @@ class OntarioBoundariesClient(BaseClient):
         """
         super().__init__(rate_limit=rate_limit)
 
-    async def get_provincial_boundary(
-        self,
-        province: str = "ON"
-    ) -> gpd.GeoDataFrame:
+    async def get_provincial_boundary(self, province: str = "ON") -> gpd.GeoDataFrame:
         """Get Ontario provincial boundary from local shapefile.
 
         Args:
@@ -100,9 +96,7 @@ class OntarioBoundariesClient(BaseClient):
         return gdf
 
     async def get_municipalities(
-        self,
-        province: str = "ON",
-        csd_types: Optional[List[str]] = None
+        self, province: str = "ON", csd_types: Optional[List[str]] = None
     ) -> gpd.GeoDataFrame:
         """Get municipal boundaries from Census Subdivision shapefile.
 
@@ -179,7 +173,9 @@ class OntarioBoundariesClient(BaseClient):
                 ) as response:
                     if response.status != 200:
                         logger.warning(f"REST request failed: HTTP {response.status}")
-                        raise DataSourceError(f"REST request failed: HTTP {response.status}")
+                        raise DataSourceError(
+                            f"REST request failed: HTTP {response.status}"
+                        )
 
                     content = await response.text()
 
@@ -201,11 +197,12 @@ class OntarioBoundariesClient(BaseClient):
 
             except Exception as e:
                 logger.error(f"Error fetching conservation authorities: {e}")
-                raise DataSourceError(f"Failed to fetch conservation authorities: {e}")
+                raise DataSourceError(
+                    f"Failed to fetch conservation authorities: {e}"
+                ) from e
 
     async def get_watersheds(
-        self,
-        watershed_type: str = "great_lakes"
+        self, watershed_type: str = "great_lakes"
     ) -> gpd.GeoDataFrame:
         """Get watershed boundaries from Ontario GeoHub.
 
@@ -220,7 +217,9 @@ class OntarioBoundariesClient(BaseClient):
             >>> client = OntarioBoundariesClient()
             >>> watersheds = await client.get_watersheds("great_lakes")
         """
-        logger.info(f"Fetching {watershed_type} watershed boundaries from Ontario GeoHub")
+        logger.info(
+            f"Fetching {watershed_type} watershed boundaries from Ontario GeoHub"
+        )
 
         # Select appropriate URL based on watershed type
         if watershed_type == "great_lakes":
@@ -244,7 +243,9 @@ class OntarioBoundariesClient(BaseClient):
                 async with session.get(url, params=params, timeout=60) as response:
                     if response.status != 200:
                         logger.warning(f"REST request failed: HTTP {response.status}")
-                        raise DataSourceError(f"REST request failed: HTTP {response.status}")
+                        raise DataSourceError(
+                            f"REST request failed: HTTP {response.status}"
+                        )
 
                     content = await response.text()
 
@@ -266,12 +267,10 @@ class OntarioBoundariesClient(BaseClient):
 
             except Exception as e:
                 logger.error(f"Error fetching watersheds: {e}")
-                raise DataSourceError(f"Failed to fetch watersheds: {e}")
+                raise DataSourceError(f"Failed to fetch watersheds: {e}") from e
 
     async def fetch(
-        self,
-        boundary_type: str = "provincial",
-        **kwargs
+        self, boundary_type: str = "provincial", **kwargs
     ) -> Union[List[Dict], gpd.GeoDataFrame]:
         """Fetch boundary data (implements BaseClient.fetch).
 

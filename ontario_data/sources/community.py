@@ -5,17 +5,15 @@ Provides clients for:
 - Indigenous infrastructure projects (ICIM)
 """
 
-import io
 import logging
 from pathlib import Path
 from typing import Dict, List, Optional, Union
 
-import aiohttp
 import geopandas as gpd
 import pandas as pd
 from shapely.geometry import Point
 
-from ontario_data.sources.base import BaseClient, DataSourceError
+from ontario_data.sources.base import BaseClient
 
 logger = logging.getLogger(__name__)
 
@@ -90,9 +88,15 @@ class CommunityWellBeingClient(BaseClient):
             logger.info(f"Filtered to {len(df)} Ontario records")
 
         # Filter to First Nations if requested
-        comm_type_col = "Community Type 2021" if "Community Type 2021" in df.columns else "Community Type"
+        comm_type_col = (
+            "Community Type 2021"
+            if "Community Type 2021" in df.columns
+            else "Community Type"
+        )
         if first_nations_only and comm_type_col in df.columns:
-            df = df[df[comm_type_col].str.contains("First Nation", na=False, case=False)].copy()
+            df = df[
+                df[comm_type_col].str.contains("First Nation", na=False, case=False)
+            ].copy()
             logger.info(f"Filtered to {len(df)} First Nations communities")
 
         # Process into standardized format
@@ -118,13 +122,49 @@ class CommunityWellBeingClient(BaseClient):
         return {
             "csd_code": str(row.get("CSD Code 2021", row.get("CSD Code", ""))),
             "csd_name": str(row.get("CSD Name 2021", row.get("CSD Name", ""))),
-            "community_type": str(row.get("Community Type 2021", row.get("Community Type", ""))),
-            "population": int(row.get("Census Population 2021", row.get("Population", 0))) if pd.notna(row.get("Census Population 2021", row.get("Population"))) else None,
-            "income_score": float(row.get("Income 2021", row.get("Income Score", 0))) if pd.notna(row.get("Income 2021", row.get("Income Score"))) else None,
-            "education_score": float(row.get("Education 2021", row.get("Education Score", 0))) if pd.notna(row.get("Education 2021", row.get("Education Score"))) else None,
-            "housing_score": float(row.get("Housing 2021", row.get("Housing Score", 0))) if pd.notna(row.get("Housing 2021", row.get("Housing Score"))) else None,
-            "labour_force_score": float(row.get("Labour Force Activity 2021", row.get("Labour Force Activity Score", 0))) if pd.notna(row.get("Labour Force Activity 2021", row.get("Labour Force Activity Score"))) else None,
-            "cwb_score": float(row.get("CWB 2021", row.get("CWB Score", 0))) if pd.notna(row.get("CWB 2021", row.get("CWB Score"))) else None,
+            "community_type": str(
+                row.get("Community Type 2021", row.get("Community Type", ""))
+            ),
+            "population": (
+                int(row.get("Census Population 2021", row.get("Population", 0)))
+                if pd.notna(row.get("Census Population 2021", row.get("Population")))
+                else None
+            ),
+            "income_score": (
+                float(row.get("Income 2021", row.get("Income Score", 0)))
+                if pd.notna(row.get("Income 2021", row.get("Income Score")))
+                else None
+            ),
+            "education_score": (
+                float(row.get("Education 2021", row.get("Education Score", 0)))
+                if pd.notna(row.get("Education 2021", row.get("Education Score")))
+                else None
+            ),
+            "housing_score": (
+                float(row.get("Housing 2021", row.get("Housing Score", 0)))
+                if pd.notna(row.get("Housing 2021", row.get("Housing Score")))
+                else None
+            ),
+            "labour_force_score": (
+                float(
+                    row.get(
+                        "Labour Force Activity 2021",
+                        row.get("Labour Force Activity Score", 0),
+                    )
+                )
+                if pd.notna(
+                    row.get(
+                        "Labour Force Activity 2021",
+                        row.get("Labour Force Activity Score"),
+                    )
+                )
+                else None
+            ),
+            "cwb_score": (
+                float(row.get("CWB 2021", row.get("CWB Score", 0)))
+                if pd.notna(row.get("CWB 2021", row.get("CWB Score")))
+                else None
+            ),
             "year": 2021,  # Based on 2021 Census
             "data_source": "Statistics Canada",
         }
@@ -165,7 +205,9 @@ class CommunityWellBeingClient(BaseClient):
 
         if not shapefile_path.exists():
             logger.error(f"Shapefile not found: {shapefile_path}")
-            logger.error("Download from: https://www12.statcan.gc.ca/census-recensement/2021/geo/sip-pis/boundary-limites/files-fichiers/lcsd000a21a_e.zip")
+            logger.error(
+                "Download from: https://www12.statcan.gc.ca/census-recensement/2021/geo/sip-pis/boundary-limites/files-fichiers/lcsd000a21a_e.zip"
+            )
             return gpd.GeoDataFrame(cwb_df)
 
         logger.info(f"Reading shapefile: {shapefile_path}")
@@ -175,18 +217,15 @@ class CommunityWellBeingClient(BaseClient):
         logger.info(f"Loaded {len(boundaries_gdf)} census subdivision boundaries")
 
         # Filter to only CSDs we need from CWB data
-        csd_codes = cwb_df['csd_code'].astype(str).unique()
-        boundaries_gdf['CSDUID'] = boundaries_gdf['CSDUID'].astype(str)
-        boundaries_gdf = boundaries_gdf[boundaries_gdf['CSDUID'].isin(csd_codes)]
+        csd_codes = cwb_df["csd_code"].astype(str).unique()
+        boundaries_gdf["CSDUID"] = boundaries_gdf["CSDUID"].astype(str)
+        boundaries_gdf = boundaries_gdf[boundaries_gdf["CSDUID"].isin(csd_codes)]
 
         logger.info(f"Filtered to {len(boundaries_gdf)} CSDs matching CWB data")
 
         # Join CWB data with boundaries on CSD code
         joined_gdf = boundaries_gdf.merge(
-            cwb_df,
-            left_on="CSDUID",
-            right_on="csd_code",
-            how="inner"
+            cwb_df, left_on="CSDUID", right_on="csd_code", how="inner"
         )
 
         # Convert to EPSG:4326 if needed
@@ -226,7 +265,9 @@ class CommunityWellBeingClient(BaseClient):
             )
 
         if include_boundaries:
-            return await self.get_cwb_with_boundaries(csv_path, province, first_nations_only)
+            return await self.get_cwb_with_boundaries(
+                csv_path, province, first_nations_only
+            )
         else:
             return await self.fetch_from_csv(csv_path, province, first_nations_only)
 
@@ -333,10 +374,10 @@ class InfrastructureClient(BaseClient):
         if bounds:
             swlat, swlng, nelat, nelng = bounds
             df = df[
-                (df["Latitude"] >= swlat) &
-                (df["Latitude"] <= nelat) &
-                (df["Longitude"] >= swlng) &
-                (df["Longitude"] <= nelng)
+                (df["Latitude"] >= swlat)
+                & (df["Latitude"] <= nelat)
+                & (df["Longitude"] >= swlng)
+                & (df["Longitude"] <= nelng)
             ].copy()
             logger.info(f"Filtered to {len(df)} projects within bounds")
 
@@ -366,7 +407,11 @@ class InfrastructureClient(BaseClient):
             "project_description": str(row.get("Description", "")),
             "infrastructure_category": str(row.get("Category", "")),
             "project_status": str(row.get("Status", "")),
-            "investment_amount": float(row.get("Investment", 0)) if pd.notna(row.get("Investment")) else None,
+            "investment_amount": (
+                float(row.get("Investment", 0))
+                if pd.notna(row.get("Investment"))
+                else None
+            ),
             "latitude": float(row["Latitude"]) if "Latitude" in row else None,
             "longitude": float(row["Longitude"]) if "Longitude" in row else None,
             "province": str(row.get("Province", "")),

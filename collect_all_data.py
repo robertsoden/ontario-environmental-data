@@ -12,13 +12,12 @@ from datetime import datetime
 from pathlib import Path
 
 from ontario_data import (
-    INaturalistClient,
-    EBirdClient,
-    StatisticsCanadaWFSClient,
+    WILLIAMS_TREATY_FIRST_NATIONS,
     CWFISClient,
+    INaturalistClient,
     OntarioGeoHubClient,
     SatelliteDataClient,
-    WILLIAMS_TREATY_FIRST_NATIONS,
+    StatisticsCanadaWFSClient,
 )
 
 # Configuration
@@ -45,13 +44,14 @@ print(f"\nData will be saved to: {OUTPUT_DIR.absolute()}")
 print(f"Start time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 print()
 
+
 async def collect_all_data():
     """Download and process all available data sources."""
 
     results = {
         "timestamp": datetime.now().isoformat(),
         "bounds": ONTARIO_BOUNDS,
-        "sources": {}
+        "sources": {},
     }
 
     # ==========================================================================
@@ -72,7 +72,9 @@ async def collect_all_data():
         communities_dir = OUTPUT_DIR / "communities"
         communities_dir.mkdir(parents=True, exist_ok=True)
 
-        output_file_communities = communities_dir / "williams_treaty_communities.geojson"
+        output_file_communities = (
+            communities_dir / "williams_treaty_communities.geojson"
+        )
         communities_gdf.to_file(output_file_communities, driver="GeoJSON")
 
         print(f"✅ Saved {len(communities_gdf)} First Nations community points")
@@ -82,16 +84,18 @@ async def collect_all_data():
             "status": "success",
             "count": len(communities_gdf),
             "file": str(output_file_communities),
-            "first_nations": list(communities_gdf["first_nation"])
+            "first_nations": list(communities_gdf["first_nation"]),
         }
 
         # Try to fetch official reserve boundaries from WFS
-        print("\nAttempting to fetch official treaty boundary polygon from Statistics Canada WFS...")
+        print(
+            "\nAttempting to fetch official treaty boundary polygon from Statistics Canada WFS..."
+        )
         try:
             official_gdf = await client.get_reserve_boundaries(
                 province="ON",
                 first_nations=WILLIAMS_TREATY_FIRST_NATIONS,
-                max_features=100
+                max_features=100,
             )
 
             if not official_gdf.empty:
@@ -101,26 +105,30 @@ async def collect_all_data():
 
                 output_file_boundaries = boundaries_dir / "williams_treaty.geojson"
                 official_gdf.to_file(output_file_boundaries, driver="GeoJSON")
-                print(f"✅ Saved Williams Treaty boundary polygon from Stats Canada")
+                print("✅ Saved Williams Treaty boundary polygon from Stats Canada")
                 print(f"   File: {output_file_boundaries}")
 
                 results["sources"]["williams_treaty_boundaries"] = {
                     "status": "success",
                     "count": len(official_gdf),
-                    "file": str(output_file_boundaries)
+                    "file": str(output_file_boundaries),
                 }
             else:
                 print("⚠️  No official boundary polygon returned")
-                print("   Note: Treaty boundary polygon should be manually added to data/processed/boundaries/")
+                print(
+                    "   Note: Treaty boundary polygon should be manually added to data/processed/boundaries/"
+                )
         except Exception as e:
             print(f"⚠️  Could not fetch official boundaries: {e}")
-            print("   Note: Treaty boundary polygon should be manually added to data/processed/boundaries/williams_treaty.geojson")
+            print(
+                "   Note: Treaty boundary polygon should be manually added to data/processed/boundaries/williams_treaty.geojson"
+            )
 
     except Exception as e:
         print(f"❌ Error: {e}")
         results["sources"]["williams_treaty_communities"] = {
             "status": "error",
-            "error": str(e)
+            "error": str(e),
         }
 
     # ==========================================================================
@@ -133,14 +141,14 @@ async def collect_all_data():
     try:
         client = CWFISClient()
 
-        print(f"\nFetching fire perimeters for Ontario")
+        print("\nFetching fire perimeters for Ontario")
         print("This may take a few minutes for 50 years of data...")
 
         fire_gdf = await client.get_fire_perimeters(
             bounds=None,  # Not needed when using province filter
             start_year=1976,
             end_year=2024,
-            province="ON"  # Use admin_area filter for province-wide data
+            province="ON",  # Use admin_area filter for province-wide data
         )
 
         if not fire_gdf.empty:
@@ -155,21 +163,21 @@ async def collect_all_data():
                 "status": "success",
                 "count": len(fire_gdf),
                 "file": str(output_file),
-                "year_range": [int(fire_gdf['year'].min()), int(fire_gdf['year'].max())]
+                "year_range": [
+                    int(fire_gdf["year"].min()),
+                    int(fire_gdf["year"].max()),
+                ],
             }
         else:
             print("⚠️  No fire perimeter data returned (may require manual download)")
             results["sources"]["fire_perimeters"] = {
                 "status": "no_data",
-                "note": "CWFIS data may require manual download from https://cwfis.cfs.nrcan.gc.ca/datamart"
+                "note": "CWFIS data may require manual download from https://cwfis.cfs.nrcan.gc.ca/datamart",
             }
 
     except Exception as e:
         print(f"❌ Error: {e}")
-        results["sources"]["fire_perimeters"] = {
-            "status": "error",
-            "error": str(e)
-        }
+        results["sources"]["fire_perimeters"] = {"status": "error", "error": str(e)}
 
     # ==========================================================================
     # 3. PROVINCIAL PARKS
@@ -192,9 +200,9 @@ async def collect_all_data():
             print(f"✅ Saved {len(parks_gdf)} provincial parks")
             print(f"   File: {output_file}")
 
-            if 'name' in parks_gdf.columns:
+            if "name" in parks_gdf.columns:
                 print("\n   Parks found:")
-                for name in parks_gdf['name'].head(10):
+                for name in parks_gdf["name"].head(10):
                     print(f"     • {name}")
                 if len(parks_gdf) > 10:
                     print(f"     ... and {len(parks_gdf) - 10} more")
@@ -202,7 +210,7 @@ async def collect_all_data():
             results["sources"]["provincial_parks"] = {
                 "status": "success",
                 "count": len(parks_gdf),
-                "file": str(output_file)
+                "file": str(output_file),
             }
         else:
             print("⚠️  No parks data returned")
@@ -210,10 +218,7 @@ async def collect_all_data():
 
     except Exception as e:
         print(f"❌ Error: {e}")
-        results["sources"]["provincial_parks"] = {
-            "status": "error",
-            "error": str(e)
-        }
+        results["sources"]["provincial_parks"] = {"status": "error", "error": str(e)}
 
     # ==========================================================================
     # 4. CONSERVATION AUTHORITIES
@@ -225,7 +230,9 @@ async def collect_all_data():
     try:
         client = OntarioGeoHubClient()
 
-        print(f"\nFetching conservation authority boundaries for bounds: {ONTARIO_BOUNDS}")
+        print(
+            f"\nFetching conservation authority boundaries for bounds: {ONTARIO_BOUNDS}"
+        )
 
         ca_gdf = await client.get_conservation_authorities(bounds=ONTARIO_BOUNDS)
 
@@ -239,7 +246,7 @@ async def collect_all_data():
             results["sources"]["conservation_authorities"] = {
                 "status": "success",
                 "count": len(ca_gdf),
-                "file": str(output_file)
+                "file": str(output_file),
             }
         else:
             print("⚠️  No conservation authority data returned")
@@ -249,7 +256,7 @@ async def collect_all_data():
         print(f"❌ Error: {e}")
         results["sources"]["conservation_authorities"] = {
             "status": "error",
-            "error": str(e)
+            "error": str(e),
         }
 
     # ==========================================================================
@@ -262,7 +269,7 @@ async def collect_all_data():
     try:
         client = INaturalistClient()
 
-        print(f"\nFetching iNaturalist observations for past year...")
+        print("\nFetching iNaturalist observations for past year...")
         print(f"Bounds: {ONTARIO_BOUNDS}")
 
         observations = await client.fetch(
@@ -270,19 +277,19 @@ async def collect_all_data():
             start_date="2024-01-01",
             end_date="2024-12-31",
             quality_grade="research",
-            per_page=500  # Get substantial data
+            per_page=500,  # Get substantial data
         )
 
         if observations:
             output_file = OUTPUT_DIR / "inaturalist_observations_2024.json"
-            with open(output_file, 'w') as f:
+            with open(output_file, "w") as f:
                 json.dump(observations, f, indent=2)
 
             print(f"✅ Saved {len(observations)} iNaturalist observations")
             print(f"   File: {output_file}")
 
             # Get unique species
-            species = set(obs.get('scientific_name', 'Unknown') for obs in observations)
+            species = {obs.get("scientific_name", "Unknown") for obs in observations}
             print(f"   Unique species: {len(species)}")
 
             results["sources"]["inaturalist"] = {
@@ -290,7 +297,7 @@ async def collect_all_data():
                 "count": len(observations),
                 "file": str(output_file),
                 "unique_species": len(species),
-                "year": 2024
+                "year": 2024,
             }
         else:
             print("⚠️  No observations returned")
@@ -299,10 +306,7 @@ async def collect_all_data():
     except Exception as e:
         print(f"❌ Error: {e}")
         print("   (This is normal if no internet connection)")
-        results["sources"]["inaturalist"] = {
-            "status": "error",
-            "error": str(e)
-        }
+        results["sources"]["inaturalist"] = {"status": "error", "error": str(e)}
 
     # ==========================================================================
     # 6. SATELLITE DATA METADATA
@@ -329,34 +333,35 @@ async def collect_all_data():
                 "2024-06-01",
                 "2024-06-30",
                 output_path=OUTPUT_DIR / "ndvi" / "ndvi_ontario_2024-06.tif",
-                resolution="250m"
+                resolution="250m",
             ),
             "dem": await client.get_elevation(ONTARIO_BOUNDS, resolution="20m"),
         }
 
         output_file = OUTPUT_DIR / "satellite_data_info.json"
-        with open(output_file, 'w') as f:
+        with open(output_file, "w") as f:
             json.dump(satellite_info, f, indent=2)
 
-        print(f"✅ Saved satellite data metadata")
+        print("✅ Saved satellite data metadata")
         print(f"   File: {output_file}")
         print("\n   📋 Download instructions:")
-        print(f"   • Land Cover: {satellite_info['land_cover']['download_url']}" if satellite_info['land_cover'] else "")
-        print(f"   • NDVI: Requires Planetary Computer API")
+        print(
+            f"   • Land Cover: {satellite_info['land_cover']['download_url']}"
+            if satellite_info["land_cover"]
+            else ""
+        )
+        print("   • NDVI: Requires Planetary Computer API")
         print(f"   • DEM: {satellite_info['dem']['download_url']}")
 
         results["sources"]["satellite"] = {
             "status": "metadata_only",
             "file": str(output_file),
-            "note": "Raster data requires manual download or optional dependencies"
+            "note": "Raster data requires manual download or optional dependencies",
         }
 
     except Exception as e:
         print(f"❌ Error: {e}")
-        results["sources"]["satellite"] = {
-            "status": "error",
-            "error": str(e)
-        }
+        results["sources"]["satellite"] = {"status": "error", "error": str(e)}
 
     # ==========================================================================
     # MANUAL DOWNLOAD INSTRUCTIONS
@@ -371,22 +376,22 @@ async def collect_all_data():
             "url": "https://www.sac-isc.gc.ca/eng/1506514143353/1533317130660",
             "format": "CSV",
             "save_to": str(RAW_DIR / "water_advisories.csv"),
-            "usage": "WaterAdvisoriesClient().fetch_from_csv('data/raw/water_advisories.csv')"
+            "usage": "WaterAdvisoriesClient().fetch_from_csv('data/raw/water_advisories.csv')",
         },
         "community_wellbeing": {
             "source": "Statistics Canada",
             "url": "https://www.sac-isc.gc.ca/eng/1419773101942/1419773233645",
             "format": "CSV (Latin-1 encoding)",
             "save_to": str(RAW_DIR / "CWB_2021.csv"),
-            "usage": "CommunityWellBeingClient().fetch_from_csv('data/raw/CWB_2021.csv')"
+            "usage": "CommunityWellBeingClient().fetch_from_csv('data/raw/CWB_2021.csv')",
         },
         "infrastructure": {
             "source": "Indigenous Services Canada ICIM",
             "url": "Request export from ISC",
             "format": "CSV (UTF-16, tab-delimited)",
             "save_to": str(RAW_DIR / "ICIM_Export.csv"),
-            "usage": "InfrastructureClient().fetch_from_csv('data/raw/ICIM_Export.csv')"
-        }
+            "usage": "InfrastructureClient().fetch_from_csv('data/raw/ICIM_Export.csv')",
+        },
     }
 
     print("\nThe following datasets require manual download:\n")
@@ -404,7 +409,7 @@ async def collect_all_data():
     # SAVE COLLECTION REPORT
     # ==========================================================================
     report_file = OUTPUT_DIR / "collection_report.json"
-    with open(report_file, 'w') as f:
+    with open(report_file, "w") as f:
         json.dump(results, f, indent=2)
 
     print("=" * 80)
@@ -415,7 +420,9 @@ async def collect_all_data():
 
     # Summary
     print("\n📊 SUMMARY:")
-    successful = sum(1 for s in results["sources"].values() if s.get("status") == "success")
+    successful = sum(
+        1 for s in results["sources"].values() if s.get("status") == "success"
+    )
     total = len(results["sources"])
     print(f"   • Successfully collected: {successful}/{total} data sources")
     print(f"   • Manual downloads required: {len(manual_downloads)}")
@@ -426,6 +433,7 @@ async def collect_all_data():
     print("   • Williams Treaties mapping project")
 
     return results
+
 
 # Run collection
 if __name__ == "__main__":
