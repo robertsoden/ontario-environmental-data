@@ -1,0 +1,278 @@
+name: Satellite Data Processing
+
+on:
+  workflow_dispatch:
+    inputs:
+      data_type:
+        description: 'Type of satellite data to process'
+        required: true
+        type: choice
+        options:
+          - ndvi
+          - landcover
+          - elevation
+        default: ndvi
+      year:
+        description: 'Year to process (required for NDVI and landcover)'
+        required: true
+        type: string
+        default: '2023'
+      skip_download:
+        description: 'Skip download (use cached data)'
+        type: boolean
+        default: false
+      upload_to_storage:
+        description: 'Upload tiles to cloud storage (requires AWS/Azure credentials)'
+        type: boolean
+        default: false
+
+jobs:
+  process-satellite-data:
+    name: Process ${{ github.event.inputs.data_type }} (${{ github.event.inputs.year }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 360  # 6 hours for large downloads + processing
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.11"
+        cache: 'pip'
+
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          gdal-bin \
+          libgdal-dev \
+          tippecanoe \
+          wget \
+          curl \
+          unzip
+
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e ".[dev,raster]"
+        pip install geopandas rasterio shapely
+
+    - name: Cache raw satellite data
+      if: github.event.inputs.skip_download == 'false'
+      uses: actions/cache@v4
+      with:
+        path: data/raw/satellite
+        key: satellite-raw-${{ github.event.inputs.data_type }}-${{ github.event.inputs.year }}
+        restore-keys: |
+          satellite-raw-${{ github.event.inputs.data_type }}-
+
+    - name: Download raw data
+      if: github.event.inputs.skip_download == 'false'
+      run: |
+        echo "Downloading ${{ github.event.inputs.data_type }} data for ${{ github.event.inputs.year }}..."
+
+        mkdir -p data/raw/satellite
+        cd data/raw/satellite
+
+        if [ "${{ github.event.inputs.data_type }}" = "ndvi" ]; then
+          # Download MODIS NDVI from Statistics Canada
+          YEAR=${{ github.event.inputs.year }}
+          FILE="MODISCOMP7d_${YEAR}.zip"
+          URL="https://ftp.maps.canada.ca/pub/statcan_statcan/modis/${FILE}"
+
+          echo "Downloading from: $URL"
+          echo "File size: ~6-7 GB (this may take 30-60 minutes)"
+
+          if [ ! -f "${FILE}" ]; then
+            wget --progress=bar:force:noscroll "$URL" || {
+              echo "ERROR: Download failed. Check URL or try manual download."
+              exit 1
+            }
+
+            echo "Extracting..."
+            unzip -o "${FILE}"
+
+            # Find the main TIF file (usually named MODISCOMP7d_YYYY_composite.tif or similar)
+            TIF_FILE=$(find . -name "*.tif" -type f | head -1)
+            if [ -n "$TIF_FILE" ]; then
+              mv "$TIF_FILE" "MODISCOMP7d_${YEAR}.tif"
+              echo "Renamed to: MODISCOMP7d_${YEAR}.tif"
+            fi
+
+            # Clean up zip
+            rm "${FILE}"
+          else
+            echo "Using cached file: ${FILE}"
+          fi
+
+        elif [ "${{ github.event.inputs.data_type }}" = "landcover" ]; then
+          # Download NRCan Land Cover
+          YEAR=${{ github.event.inputs.year }}
+
+          echo "Land cover data for $YEAR requires manual download."
+          echo "Download from: https://ftp.maps.canada.ca/pub/nrcan_rncan/Land-cover_Couverture-du-sol/"
+          echo ""
+          echo "For automated processing, pre-download and upload to:"
+          echo "  data/raw/satellite/landcover_${YEAR}.tif"
+
+          exit 1
+
+        elif [ "${{ github.event.inputs.data_type }}" = "elevation" ]; then
+          echo "Elevation data requires NTS tile identification and download."
+          echo "See: https://ftp.maps.canada.ca/pub/elevation/dem_mne/highresolution_hauteresolution/"
+
+          exit 1
+        fi
+
+    - name: Process satellite data
+      run: |
+        python scripts/process_satellite_data.py \
+          --data-type ${{ github.event.inputs.data_type }} \
+          --year ${{ github.event.inputs.year }}
+      continue-on-error: false
+
+    - name: Check processing results
+      if: always()
+      run: |
+        echo "=== Processing Results ==="
+        ls -lh data/processed/satellite/ || echo "No processed files found"
+        echo ""
+        ls -lh data/tiles/ || echo "No tile files found"
+        echo ""
+        cat satellite_data_registry.json | python -m json.tool | tail -50
+
+    - name: Upload tiles to cloud storage
+      if: github.event.inputs.upload_to_storage == 'true' && success()
+      run: |
+        echo "Uploading tiles to cloud storage..."
+
+        # Option 1: AWS S3
+        if [ -n "${{ secrets.AWS_ACCESS_KEY_ID }}" ]; then
+          echo "Uploading to S3..."
+          pip install awscli
+
+          aws s3 sync data/tiles/ \
+            s3://ontario-satellite-data/tiles/ \
+            --acl public-read \
+            --cache-control "max-age=31536000" \
+            --region us-east-1
+
+          echo "✓ Uploaded to S3"
+
+        # Option 2: Azure Blob Storage
+        elif [ -n "${{ secrets.AZURE_STORAGE_CONNECTION_STRING }}" ]; then
+          echo "Uploading to Azure Blob Storage..."
+          pip install azure-storage-blob
+
+          python - <<'EOFPYTHON'
+import os
+from pathlib import Path
+from azure.storage.blob import BlobServiceClient
+
+conn_str = os.environ['AZURE_STORAGE_CONNECTION_STRING']
+blob_service = BlobServiceClient.from_connection_string(conn_str)
+container = blob_service.get_container_client("ontario-satellite-data")
+
+for file_path in Path("data/tiles").rglob("*"):
+    if file_path.is_file():
+        blob_name = str(file_path.relative_to("data/tiles"))
+        with open(file_path, "rb") as data:
+            blob_client = container.get_blob_client(blob_name)
+            blob_client.upload_blob(data, overwrite=True)
+            print(f"Uploaded: {blob_name}")
+
+print("✓ Uploaded to Azure")
+EOFPYTHON
+
+        else
+          echo "⚠ No cloud storage credentials configured"
+          echo "Set AWS_ACCESS_KEY_ID or AZURE_STORAGE_CONNECTION_STRING secrets"
+        fi
+
+    - name: Upload processing artifacts
+      if: success()
+      uses: actions/upload-artifact@v4
+      with:
+        name: satellite-${{ github.event.inputs.data_type }}-${{ github.event.inputs.year }}
+        path: |
+          data/processed/satellite/**/*.tif
+          data/processed/satellite/**/*.geojson
+          data/tiles/**/*.pmtiles
+          satellite_data_registry.json
+        retention-days: 90
+        compression-level: 9
+        if-no-files-found: warn
+
+    - name: Create summary
+      if: always()
+      run: |
+        echo "## 🛰️ Satellite Data Processing Results" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Data Type:** ${{ github.event.inputs.data_type }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Year:** ${{ github.event.inputs.year }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Status:** ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+
+        echo "### Processing Steps" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+
+        if [ -f "data/processed/satellite/*${{ github.event.inputs.year }}*.tif" ]; then
+          echo "✅ Raster processing completed" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "❌ Raster processing failed" >> $GITHUB_STEP_SUMMARY
+        fi
+
+        if [ -f "data/processed/satellite/*${{ github.event.inputs.year }}*.geojson" ]; then
+          echo "✅ Vector conversion completed" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "❌ Vector conversion failed" >> $GITHUB_STEP_SUMMARY
+        fi
+
+        if [ -f "data/tiles/*${{ github.event.inputs.year }}*.pmtiles" ]; then
+          echo "✅ Tile generation completed" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "❌ Tile generation failed" >> $GITHUB_STEP_SUMMARY
+        fi
+
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Output Files" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo '```' >> $GITHUB_STEP_SUMMARY
+        ls -lh data/processed/satellite/ 2>/dev/null || echo "No processed files"
+        echo ""
+        ls -lh data/tiles/ 2>/dev/null || echo "No tile files"
+        echo '```' >> $GITHUB_STEP_SUMMARY
+
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Next Steps" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "1. Download artifacts from this workflow run" >> $GITHUB_STEP_SUMMARY
+        echo "2. Deploy PMTiles to static hosting or tile server" >> $GITHUB_STEP_SUMMARY
+        echo "3. Update tile URLs in satellite_data_registry.json" >> $GITHUB_STEP_SUMMARY
+        echo "4. Test tiles in map application" >> $GITHUB_STEP_SUMMARY
+
+  update-registry:
+    name: Update Registry
+    needs: process-satellite-data
+    if: success()
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Download processing artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: satellite-${{ github.event.inputs.data_type }}-${{ github.event.inputs.year }}
+
+    - name: Commit updated registry
+      run: |
+        git config user.name "GitHub Actions"
+        git config user.email "actions@github.com"
+
+        if [ -f "satellite_data_registry.json" ]; then
+          git add satellite_data_registry.json
+          git commit -m "Update satellite data registry: ${{ github.event.inputs.data_type }} ${{ github.event.inputs.year }}" || echo "No changes to commit"
+          git push
+        fi

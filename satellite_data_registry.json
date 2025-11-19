@@ -1,0 +1,147 @@
+{
+  "metadata": {
+    "last_updated": "2025-11-19T00:00:00Z",
+    "extent": {
+      "description": "Province of Ontario, Canada",
+      "bounds": [-95.2, 41.7, -74.3, 56.9],
+      "epsg": 4326
+    },
+    "storage": {
+      "provider": "tbd",
+      "base_url": "https://storage.example.com/ontario-satellite-data",
+      "note": "Configure S3 or Azure Blob Storage"
+    }
+  },
+  "datasets": {
+    "ndvi": {
+      "description": "Normalized Difference Vegetation Index from Statistics Canada MODIS",
+      "source": "Statistics Canada MODIS 250m",
+      "resolution": "250m",
+      "temporal_resolution": "weekly",
+      "years_available": [],
+      "versions": {},
+      "tile_schema": {
+        "format": "pmtiles",
+        "zoom_range": [4, 12],
+        "vector_layers": [
+          {
+            "id": "ndvi",
+            "fields": {
+              "ndvi_class": "string",
+              "ndvi_value": "number",
+              "week": "number",
+              "year": "number"
+            },
+            "classification": {
+              "water_snow": "< 0",
+              "barren": "0-0.2",
+              "sparse_vegetation": "0.2-0.4",
+              "moderate_vegetation": "0.4-0.6",
+              "dense_vegetation": "0.6-1.0"
+            }
+          }
+        ]
+      },
+      "processing": {
+        "last_run": null,
+        "status": "not_processed",
+        "raw_data_size_gb": 6.5,
+        "processed_size_gb": 2.1,
+        "tile_size_mb": 450
+      }
+    },
+    "landcover": {
+      "description": "Land cover classification from Natural Resources Canada",
+      "source": "Natural Resources Canada NALCMS",
+      "resolution": "30m",
+      "temporal_resolution": "5-year",
+      "years_available": [2010, 2015, 2020],
+      "versions": {},
+      "tile_schema": {
+        "format": "pmtiles",
+        "zoom_range": [4, 14],
+        "vector_layers": [
+          {
+            "id": "landcover",
+            "fields": {
+              "class_id": "number",
+              "class_name": "string",
+              "year": "number"
+            },
+            "classes": {
+              "1": "Temperate or sub-polar needleleaf forest",
+              "2": "Sub-polar taiga needleleaf forest",
+              "5": "Temperate or sub-polar broadleaf deciduous forest",
+              "6": "Mixed forest",
+              "8": "Temperate or sub-polar shrubland",
+              "10": "Temperate or sub-polar grassland",
+              "11": "Sub-polar or polar shrubland-lichen-moss",
+              "12": "Sub-polar or polar grassland-lichen-moss",
+              "13": "Sub-polar or polar barren-lichen-moss",
+              "14": "Wetland",
+              "15": "Cropland",
+              "16": "Barren lands",
+              "17": "Urban",
+              "18": "Water",
+              "19": "Snow and Ice"
+            }
+          }
+        ]
+      },
+      "processing": {
+        "last_run": null,
+        "status": "not_processed",
+        "raw_data_size_gb": 4.8,
+        "processed_size_gb": 1.2,
+        "tile_size_mb": 650
+      }
+    },
+    "elevation": {
+      "description": "Digital Elevation Model from Natural Resources Canada CDEM",
+      "source": "Natural Resources Canada CDEM",
+      "resolution": "20m",
+      "temporal_resolution": "static",
+      "years_available": [2023],
+      "versions": {},
+      "tile_schema": {
+        "format": "pmtiles",
+        "zoom_range": [4, 14],
+        "vector_layers": [
+          {
+            "id": "elevation",
+            "fields": {
+              "elevation_m": "number",
+              "elevation_class": "string"
+            },
+            "classification": {
+              "lowland": "< 200m",
+              "upland": "200-400m",
+              "highland": "400-600m",
+              "mountain": "> 600m"
+            }
+          }
+        ]
+      },
+      "processing": {
+        "last_run": null,
+        "status": "not_processed",
+        "raw_data_size_gb": 12.0,
+        "processed_size_gb": 3.5,
+        "tile_size_mb": 800
+      }
+    }
+  },
+  "processing_notes": {
+    "pipeline": "Raw download → Clip to Ontario → Classify/Polygonize → Generate tiles → Upload to storage",
+    "storage_requirements": {
+      "raw_cache": "~25 GB (ephemeral, 90-day cache)",
+      "processed_rasters": "~7 GB (persistent)",
+      "vector_tiles": "~2 GB total (PMTiles format)"
+    },
+    "update_frequency": {
+      "ndvi": "annually (process latest year)",
+      "landcover": "every 5 years (when NRCan releases new data)",
+      "elevation": "rarely (only when CDEM updated)"
+    }
+  }
+}
