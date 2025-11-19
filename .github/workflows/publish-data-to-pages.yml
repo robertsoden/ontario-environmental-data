@@ -1,0 +1,93 @@
+name: Publish Data to GitHub Pages
+
+on:
+  # Run manually
+  workflow_dispatch:
+
+  # Run after data collection completes
+  workflow_run:
+    workflows: ["Data Collection"]
+    types:
+      - completed
+
+# Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Allow only one concurrent deployment
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  # Build job
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Create index.html for data directory
+        run: |
+          # Create a simple index.html that lists available data
+          cat > data/index.html << 'EOF'
+          <!DOCTYPE html>
+          <html>
+          <head>
+              <title>Ontario Environmental Data</title>
+              <style>
+                  body { font-family: Arial, sans-serif; margin: 40px; }
+                  h1 { color: #2c5282; }
+                  .info { background: #e6f3ff; padding: 15px; border-radius: 5px; margin: 20px 0; }
+                  code { background: #f5f5f5; padding: 2px 5px; border-radius: 3px; }
+              </style>
+          </head>
+          <body>
+              <h1>Ontario Environmental Data</h1>
+              <div class="info">
+                  <p><strong>Data Repository for Williams Treaties Mapping Project</strong></p>
+                  <p>This GitHub Pages site hosts processed environmental data files for the Williams Treaty Territories.</p>
+                  <p>Base URL: <code>https://robertsoden.github.io/ontario-environmental-data/</code></p>
+              </div>
+
+              <h2>Available Data Directories</h2>
+              <ul>
+                  <li><a href="data/processed/">data/processed/</a> - Processed datasets ready for visualization</li>
+                  <li><a href="data/raw/">data/raw/</a> - Raw source data</li>
+                  <li><a href="data/boundaries/">data/boundaries/</a> - Boundary files</li>
+              </ul>
+
+              <h2>Usage</h2>
+              <p>Access data files directly via URL:</p>
+              <pre><code>https://robertsoden.github.io/ontario-environmental-data/data/processed/boundaries/williams_treaty.geojson</code></pre>
+
+              <h2>Related Projects</h2>
+              <ul>
+                  <li><a href="https://github.com/robertsoden/ontario-environmental-data">ontario-environmental-data</a> - Data generation repository</li>
+                  <li><a href="https://github.com/robertsoden/williams-treaties">williams-treaties</a> - Interactive map visualization</li>
+              </ul>
+          </body>
+          </html>
+          EOF
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: 'data'
+
+  # Deployment job
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
