@@ -138,6 +138,15 @@ jobs:
           </html>
           EOF
 
+      - name: Create directory structure
+        run: |
+          # Create expected directories even if they don't exist yet
+          mkdir -p data/raw
+          mkdir -p data/processed
+          mkdir -p data/processed/boundaries
+          mkdir -p data/processed/communities
+          echo "Directory structure created"
+
       - name: Generate directory index files
         run: |
           # Generate index.html for ALL subdirectories so directory browsing works
