@@ -7,7 +7,7 @@ Provides clients for:
 
 import io
 import logging
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 import aiohttp
 import geopandas as gpd
@@ -116,7 +116,9 @@ class CWFISClient(BaseClient):
                                 gdf = gpd.read_file(io.StringIO(content))
 
                                 if not gdf.empty:
-                                    # Year field already exists in NBAC data
+                                    # Add year column if not already present
+                                    if "year" not in gdf.columns:
+                                        gdf["year"] = year
                                     all_perimeters.append(gdf)
                                     logger.info(f"    Found {len(gdf)} fire perimeters")
                                 else:

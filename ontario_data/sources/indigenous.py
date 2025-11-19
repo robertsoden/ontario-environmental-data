@@ -265,9 +265,9 @@ class StatisticsCanadaWFSClient(BaseClient):
 
             if first_nations:
                 # Build filter for First Nation names (search in adminAreaNameEng)
-                name_filters = " OR ".join([
-                    f"adminAreaNameEng LIKE '%{name}%'" for name in first_nations
-                ])
+                name_filters = " OR ".join(
+                    [f"adminAreaNameEng LIKE '%{name}%'" for name in first_nations]
+                )
                 where_clauses.append(f"({name_filters})")
 
             where_clause = " AND ".join(where_clauses)

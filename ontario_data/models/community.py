@@ -12,13 +12,25 @@ class CommunityWellBeing(BaseModel):
     csd_name: str = Field(..., description="Census Subdivision name")
     community_type: Optional[str] = Field(None, description="Community type")
     population: Optional[int] = Field(None, description="Population count", ge=0)
-    income_score: Optional[float] = Field(None, description="Income component score", ge=0, le=100)
-    education_score: Optional[float] = Field(None, description="Education component score", ge=0, le=100)
-    housing_score: Optional[float] = Field(None, description="Housing component score", ge=0, le=100)
-    labour_force_score: Optional[float] = Field(None, description="Labour force activity score", ge=0, le=100)
-    cwb_score: Optional[float] = Field(None, description="Overall CWB score", ge=0, le=100)
+    income_score: Optional[float] = Field(
+        None, description="Income component score", ge=0, le=100
+    )
+    education_score: Optional[float] = Field(
+        None, description="Education component score", ge=0, le=100
+    )
+    housing_score: Optional[float] = Field(
+        None, description="Housing component score", ge=0, le=100
+    )
+    labour_force_score: Optional[float] = Field(
+        None, description="Labour force activity score", ge=0, le=100
+    )
+    cwb_score: Optional[float] = Field(
+        None, description="Overall CWB score", ge=0, le=100
+    )
     year: int = Field(default=2021, description="Census year")
-    geometry: Optional[Dict] = Field(None, description="GeoJSON geometry (Point or Polygon)")
+    geometry: Optional[Dict] = Field(
+        None, description="GeoJSON geometry (Point or Polygon)"
+    )
     data_source: str = Field(default="Statistics Canada", description="Data source")
 
     class Config:
@@ -47,10 +59,8 @@ class CommunityWellBeing(BaseModel):
         """
         return {
             "type": "Feature",
-            "geometry": self.geometry or {
-                "type": "Point",
-                "coordinates": [0, 0]  # Placeholder if no geometry
-            },
+            "geometry": self.geometry
+            or {"type": "Point", "coordinates": [0, 0]},  # Placeholder if no geometry
             "properties": {
                 "csd_code": self.csd_code,
                 "csd_name": self.csd_name,
@@ -76,13 +86,14 @@ class InfrastructureProject(BaseModel):
     project_description: Optional[str] = Field(None, description="Project description")
     infrastructure_category: str = Field(..., description="Infrastructure category")
     project_status: Optional[str] = Field(None, description="Project status")
-    investment_amount: Optional[float] = Field(None, description="Investment amount (CAD)", ge=0)
+    investment_amount: Optional[float] = Field(
+        None, description="Investment amount (CAD)", ge=0
+    )
     latitude: float = Field(..., description="Latitude", ge=-90, le=90)
     longitude: float = Field(..., description="Longitude", ge=-180, le=180)
     province: Optional[str] = Field(None, description="Province")
     data_source: str = Field(
-        default="Indigenous Services Canada ICIM",
-        description="Data source"
+        default="Indigenous Services Canada ICIM", description="Data source"
     )
 
     class Config:
@@ -113,7 +124,7 @@ class InfrastructureProject(BaseModel):
             "type": "Feature",
             "geometry": {
                 "type": "Point",
-                "coordinates": [self.longitude, self.latitude]
+                "coordinates": [self.longitude, self.latitude],
             },
             "properties": {
                 "community_name": self.community_name,

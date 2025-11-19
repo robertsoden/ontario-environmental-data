@@ -83,9 +83,13 @@ class OntarioGeoHubClient(BaseClient):
                     params["geometry"] = f"{swlng},{swlat},{nelng},{nelat}"
                     params["geometryType"] = "esriGeometryEnvelope"
                     params["spatialRel"] = "esriSpatialRelIntersects"
-                    logger.info(f"  Using bbox filter for area: {bbox_area:.1f} sq degrees")
+                    logger.info(
+                        f"  Using bbox filter for area: {bbox_area:.1f} sq degrees"
+                    )
                 else:
-                    logger.info("  Skipping bbox filter for province-wide query (fetching all parks)")
+                    logger.info(
+                        "  Skipping bbox filter for province-wide query (fetching all parks)"
+                    )
 
             try:
                 async with session.get(
@@ -100,14 +104,23 @@ class OntarioGeoHubClient(BaseClient):
                     content = await response.text()
 
                     # Check if response is HTML error page instead of GeoJSON
-                    if content.strip().startswith('<') or 'html' in content[:100].lower():
+                    if (
+                        content.strip().startswith("<")
+                        or "html" in content[:100].lower()
+                    ):
                         # Extract error message from HTML if possible
                         if "Could not access any server machines" in content:
-                            raise DataSourceError("ArcGIS server error: Could not access server machines")
+                            raise DataSourceError(
+                                "ArcGIS server error: Could not access server machines"
+                            )
                         elif "errorLabel" in content:
-                            raise DataSourceError("ArcGIS server returned an error page")
+                            raise DataSourceError(
+                                "ArcGIS server returned an error page"
+                            )
                         else:
-                            raise DataSourceError("Server returned HTML instead of GeoJSON")
+                            raise DataSourceError(
+                                "Server returned HTML instead of GeoJSON"
+                            )
 
                     gdf = gpd.read_file(io.StringIO(content))
 
@@ -218,9 +231,13 @@ class OntarioGeoHubClient(BaseClient):
                     params["geometry"] = f"{swlng},{swlat},{nelng},{nelat}"
                     params["geometryType"] = "esriGeometryEnvelope"
                     params["spatialRel"] = "esriSpatialRelIntersects"
-                    logger.info(f"  Using bbox filter for area: {bbox_area:.1f} sq degrees")
+                    logger.info(
+                        f"  Using bbox filter for area: {bbox_area:.1f} sq degrees"
+                    )
                 else:
-                    logger.info("  Skipping bbox filter for province-wide query (fetching all conservation authorities)")
+                    logger.info(
+                        "  Skipping bbox filter for province-wide query (fetching all conservation authorities)"
+                    )
 
             try:
                 async with session.get(
@@ -247,7 +264,8 @@ class OntarioGeoHubClient(BaseClient):
                     }
 
                     rename_dict = {
-                        old: new for old, new in column_mapping.items()
+                        old: new
+                        for old, new in column_mapping.items()
                         if old in gdf.columns
                     }
                     if rename_dict:
