@@ -46,26 +46,42 @@ class CWFISClient(BaseClient):
         bounds: tuple,
         start_year: int,
         end_year: int,
+        province: Optional[str] = None,
     ) -> gpd.GeoDataFrame:
         """Get historical fire perimeters from NBAC (National Burned Area Composite).
 
         Args:
-            bounds: Bounding box (swlat, swlng, nelat, nelng)
+            bounds: Bounding box (swlat, swlng, nelat, nelng) - optional if province specified
             start_year: Start year for fire data
             end_year: End year for fire data
+            province: Optional 2-letter province code (e.g., 'ON', 'BC') for admin_area filter.
+                     Recommended for province-wide queries due to CRS issues with bbox.
 
         Returns:
             GeoDataFrame with fire perimeter polygons
 
         Example:
             >>> client = CWFISClient()
-            >>> bounds = (44.0, -79.0, 45.0, -78.0)
-            >>> fires = await client.get_fire_perimeters(bounds, 2010, 2024)
+            >>> # Province-wide (recommended):
+            >>> fires = await client.get_fire_perimeters(None, 2010, 2024, province='ON')
+            >>> # Specific bbox:
+            >>> fires = await client.get_fire_perimeters((44.0, -79.0, 45.0, -78.0), 2010, 2024)
         """
         logger.info(f"Fetching fire perimeters ({start_year}-{end_year})")
 
-        swlat, swlng, nelat, nelng = bounds
-        bbox_str = f"{swlng},{swlat},{nelng},{nelat}"
+        # Prepare spatial filter
+        if province:
+            # Use admin_area filter (more reliable for province-wide queries)
+            spatial_filter = f"admin_area='{province}'"
+            logger.info(f"  Using province filter: {province}")
+        elif bounds:
+            # Use BBOX function in CQL (note: NBAC geometry is in EPSG:3978)
+            swlat, swlng, nelat, nelng = bounds
+            bbox_str = f"{swlng},{swlat},{nelng},{nelat}"
+            spatial_filter = f"BBOX(geometry,{bbox_str})"
+            logger.info(f"  Using bbox filter: {bbox_str}")
+        else:
+            raise ValueError("Either bounds or province must be specified")
 
         all_perimeters = []
 
@@ -76,15 +92,18 @@ class CWFISClient(BaseClient):
                 logger.info(f"  Fetching fire perimeters for {year}...")
 
                 try:
-                    # WFS GetFeature request
+                    # WFS GetFeature request for NBAC layer with spatial and year filter
+                    # Note: bbox and CQL_FILTER are mutually exclusive, so we use spatial filter within CQL_FILTER
+                    cql_filter = f"year={year} AND {spatial_filter}"
+
                     params = {
                         "service": "WFS",
                         "version": "2.0.0",
                         "request": "GetFeature",
-                        "typeName": f"public:nbac_{year}",  # NBAC layer naming
+                        "typeName": "public:nbac",  # Single NBAC layer (1972-2024)
                         "outputFormat": "application/json",
                         "srsName": "EPSG:4326",
-                        "bbox": bbox_str,
+                        "CQL_FILTER": cql_filter,  # Combined spatial and temporal filter
                     }
 
                     async with session.get(
@@ -97,7 +116,7 @@ class CWFISClient(BaseClient):
                                 gdf = gpd.read_file(io.StringIO(content))
 
                                 if not gdf.empty:
-                                    gdf["year"] = year
+                                    # Year field already exists in NBAC data
                                     all_perimeters.append(gdf)
                                     logger.info(f"    Found {len(gdf)} fire perimeters")
                                 else:
