@@ -34,11 +34,22 @@ This directory contains CI/CD workflows for the Ontario Environmental Data Libra
 **Trigger:** Manual only (workflow_dispatch)
 **Purpose:** Generate Ontario environmental datasets on demand
 
+**Mode:**
+- `status-only` (default) - Check which data exists without collecting
+- `collect` - Actually collect selected data sources
+
+**Data Sources:** (7 individual checkboxes)
+- Williams Treaty Communities (community points)
+- Williams Treaty Boundaries (territory polygon) - ✓ EXISTS
+- Fire Perimeters (historical 1976-2024)
+- Provincial Parks (Ontario parks)
+- Conservation Authorities (CA boundaries)
+- iNaturalist (biodiversity observations)
+- Satellite Data (NDVI, land cover info)
+
 **Options:**
-- `full-ontario` - Run complete Ontario data collection
-- `williams-treaty` - Generate Williams Treaty specific data
-- `test-clients` - Run integration tests for all API clients
 - `upload_artifacts` - Upload generated data as GitHub artifacts (30 day retention)
+- `force_refresh` - Re-download data even if it exists
 
 **To trigger:**
 1. Go to Actions tab in GitHub
