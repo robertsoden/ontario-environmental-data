@@ -138,6 +138,68 @@ jobs:
           </html>
           EOF
 
+      - name: Generate directory index files
+        run: |
+          # Generate index.html for each subdirectory so directory browsing works
+          find data -type d | while read dir; do
+            # Skip the root data directory (already has index.html)
+            if [ "$dir" = "data" ]; then
+              continue
+            fi
+
+            # Get relative path from data/
+            rel_path="${dir#data/}"
+
+            # Count files in this directory (not subdirs)
+            file_count=$(find "$dir" -maxdepth 1 -type f | wc -l)
+
+            if [ "$file_count" -gt 0 ]; then
+              echo "Creating index for: $dir"
+
+              cat > "$dir/index.html" << 'HTMLEOF'
+          <!DOCTYPE html>
+          <html>
+          <head>
+              <title>DIRECTORY_NAME - Ontario Environmental Data</title>
+              <style>
+                  body { font-family: Arial, sans-serif; margin: 40px; }
+                  h1 { color: #2c5282; }
+                  .file-list { list-style: none; padding: 0; }
+                  .file-list li { padding: 8px; border-bottom: 1px solid #eee; }
+                  .file-list a { text-decoration: none; color: #2563eb; }
+                  .file-list a:hover { text-decoration: underline; }
+                  .size { color: #666; font-size: 0.9em; margin-left: 10px; }
+                  .back { margin: 20px 0; }
+              </style>
+          </head>
+          <body>
+              <div class="back"><a href="../">← Back</a> | <a href="/">Home</a></div>
+              <h1>DIRECTORY_NAME</h1>
+              <ul class="file-list">
+          HTMLEOF
+
+              # Add file listings
+              find "$dir" -maxdepth 1 -type f -not -name "index.html" | sort | while read file; do
+                filename=$(basename "$file")
+                filesize=$(du -h "$file" | cut -f1)
+                echo "                  <li><a href=\"$filename\">$filename</a><span class=\"size\">($filesize)</span></li>" >> "$dir/index.html"
+              done
+
+              # Close HTML
+              cat >> "$dir/index.html" << 'HTMLEOF'
+              </ul>
+          </body>
+          </html>
+          HTMLEOF
+
+              # Replace DIRECTORY_NAME with actual directory name
+              sed -i "s|DIRECTORY_NAME|$rel_path|g" "$dir/index.html"
+            fi
+          done
+
+          echo "Generated directory indexes:"
+          find data -name "index.html" -type f
+
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
