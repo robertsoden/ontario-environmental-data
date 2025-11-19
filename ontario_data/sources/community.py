@@ -29,8 +29,9 @@ class CommunityWellBeingClient(BaseClient):
     Data source: Statistics Canada (based on Census data)
     """
 
-    STATS_CAN_BOUNDARIES_WFS = "https://geo.statcan.gc.ca/geoserver/census-recensement/wfs"
-    CSD_LAYER = "census-recensement:lcsd000b21a_e"  # Census Subdivisions
+    # Statistics Canada 2021 Census Subdivision boundaries shapefile
+    # Download from: https://www12.statcan.gc.ca/census-recensement/2021/geo/sip-pis/boundary-limites/files-fichiers/lcsd000a21a_e.zip
+    CSD_SHAPEFILE = "data/raw/lcsd000a21a_e.shp"  # All Canada CSDs, 63MB
 
     def __init__(self, rate_limit: int = 60):
         """Initialize Community Well-Being client.
@@ -83,13 +84,15 @@ class CommunityWellBeingClient(BaseClient):
         logger.info(f"Loaded {len(df)} CWB records")
 
         # Filter for specified province (Ontario CSD codes start with "35")
-        if province == "ON" and "CSD Code" in df.columns:
-            df = df[df["CSD Code"].astype(str).str.startswith("35")].copy()
+        csd_col = "CSD Code 2021" if "CSD Code 2021" in df.columns else "CSD Code"
+        if province == "ON" and csd_col in df.columns:
+            df = df[df[csd_col].astype(str).str.startswith("35")].copy()
             logger.info(f"Filtered to {len(df)} Ontario records")
 
         # Filter to First Nations if requested
-        if first_nations_only and "Community Type" in df.columns:
-            df = df[df["Community Type"].str.contains("First Nation", na=False, case=False)].copy()
+        comm_type_col = "Community Type 2021" if "Community Type 2021" in df.columns else "Community Type"
+        if first_nations_only and comm_type_col in df.columns:
+            df = df[df[comm_type_col].str.contains("First Nation", na=False, case=False)].copy()
             logger.info(f"Filtered to {len(df)} First Nations communities")
 
         # Process into standardized format
@@ -111,16 +114,17 @@ class CommunityWellBeingClient(BaseClient):
         Returns:
             Standardized community well-being dictionary
         """
+        # Handle both with and without year suffix in column names
         return {
-            "csd_code": str(row.get("CSD Code", "")),
-            "csd_name": str(row.get("CSD Name", "")),
-            "community_type": str(row.get("Community Type", "")),
-            "population": int(row.get("Population", 0)) if pd.notna(row.get("Population")) else None,
-            "income_score": float(row.get("Income Score", 0)) if pd.notna(row.get("Income Score")) else None,
-            "education_score": float(row.get("Education Score", 0)) if pd.notna(row.get("Education Score")) else None,
-            "housing_score": float(row.get("Housing Score", 0)) if pd.notna(row.get("Housing Score")) else None,
-            "labour_force_score": float(row.get("Labour Force Activity Score", 0)) if pd.notna(row.get("Labour Force Activity Score")) else None,
-            "cwb_score": float(row.get("CWB Score", 0)) if pd.notna(row.get("CWB Score")) else None,
+            "csd_code": str(row.get("CSD Code 2021", row.get("CSD Code", ""))),
+            "csd_name": str(row.get("CSD Name 2021", row.get("CSD Name", ""))),
+            "community_type": str(row.get("Community Type 2021", row.get("Community Type", ""))),
+            "population": int(row.get("Census Population 2021", row.get("Population", 0))) if pd.notna(row.get("Census Population 2021", row.get("Population"))) else None,
+            "income_score": float(row.get("Income 2021", row.get("Income Score", 0))) if pd.notna(row.get("Income 2021", row.get("Income Score"))) else None,
+            "education_score": float(row.get("Education 2021", row.get("Education Score", 0))) if pd.notna(row.get("Education 2021", row.get("Education Score"))) else None,
+            "housing_score": float(row.get("Housing 2021", row.get("Housing Score", 0))) if pd.notna(row.get("Housing 2021", row.get("Housing Score"))) else None,
+            "labour_force_score": float(row.get("Labour Force Activity 2021", row.get("Labour Force Activity Score", 0))) if pd.notna(row.get("Labour Force Activity 2021", row.get("Labour Force Activity Score"))) else None,
+            "cwb_score": float(row.get("CWB 2021", row.get("CWB Score", 0))) if pd.notna(row.get("CWB 2021", row.get("CWB Score"))) else None,
             "year": 2021,  # Based on 2021 Census
             "data_source": "Statistics Canada",
         }
@@ -133,7 +137,7 @@ class CommunityWellBeingClient(BaseClient):
     ) -> gpd.GeoDataFrame:
         """Get CWB data joined with census subdivision boundaries.
 
-        Fetches boundaries from Statistics Canada WFS and joins with CWB scores.
+        Loads boundaries from local shapefile and joins with CWB scores.
 
         Args:
             csv_path: Path to CWB CSV file
@@ -154,63 +158,46 @@ class CommunityWellBeingClient(BaseClient):
         cwb_data = await self.fetch_from_csv(csv_path, province, first_nations_only)
         cwb_df = pd.DataFrame(cwb_data)
 
-        logger.info("Fetching census subdivision boundaries from Statistics Canada")
+        logger.info("Loading census subdivision boundaries from local shapefile")
 
-        async with aiohttp.ClientSession() as session:
-            await self._rate_limit_wait()
+        # Get the shapefile path (relative to module or absolute)
+        shapefile_path = Path(__file__).parent.parent.parent / self.CSD_SHAPEFILE
 
-            # Build WFS request for census subdivisions
-            params = {
-                "service": "WFS",
-                "version": "2.0.0",
-                "request": "GetFeature",
-                "typeName": self.CSD_LAYER,
-                "outputFormat": "application/json",
-                "srsName": "EPSG:4326",
-            }
+        if not shapefile_path.exists():
+            logger.error(f"Shapefile not found: {shapefile_path}")
+            logger.error("Download from: https://www12.statcan.gc.ca/census-recensement/2021/geo/sip-pis/boundary-limites/files-fichiers/lcsd000a21a_e.zip")
+            return gpd.GeoDataFrame(cwb_df)
 
-            # Add province filter
-            if province:
-                params["CQL_FILTER"] = f"PRCODE='{province}'"
+        logger.info(f"Reading shapefile: {shapefile_path}")
 
-            try:
-                async with session.get(
-                    self.STATS_CAN_BOUNDARIES_WFS, params=params, timeout=120
-                ) as response:
-                    if response.status != 200:
-                        logger.warning(f"WFS request failed: HTTP {response.status}")
-                        # Return CWB data without geometries
-                        return gpd.GeoDataFrame(cwb_df)
+        # Read the entire shapefile (63MB, all Canada CSDs)
+        boundaries_gdf = gpd.read_file(shapefile_path)
+        logger.info(f"Loaded {len(boundaries_gdf)} census subdivision boundaries")
 
-                    content = await response.text()
-                    boundaries_gdf = gpd.read_file(io.StringIO(content))
+        # Filter to only CSDs we need from CWB data
+        csd_codes = cwb_df['csd_code'].astype(str).unique()
+        boundaries_gdf['CSDUID'] = boundaries_gdf['CSDUID'].astype(str)
+        boundaries_gdf = boundaries_gdf[boundaries_gdf['CSDUID'].isin(csd_codes)]
 
-                    if boundaries_gdf.empty:
-                        logger.warning("No boundaries found")
-                        return gpd.GeoDataFrame(cwb_df)
+        logger.info(f"Filtered to {len(boundaries_gdf)} CSDs matching CWB data")
 
-                    logger.info(f"Fetched {len(boundaries_gdf)} census subdivision boundaries")
+        # Join CWB data with boundaries on CSD code
+        joined_gdf = boundaries_gdf.merge(
+            cwb_df,
+            left_on="CSDUID",
+            right_on="csd_code",
+            how="inner"
+        )
 
-                    # Join CWB data with boundaries on CSD code
-                    # Note: May need to adjust join key based on actual column names
-                    joined_gdf = boundaries_gdf.merge(
-                        cwb_df,
-                        left_on="CSDUID",
-                        right_on="csd_code",
-                        how="inner"
-                    )
+        # Convert to EPSG:4326 if needed
+        if joined_gdf.crs is None:
+            joined_gdf.set_crs("EPSG:4326", inplace=True)
+        elif joined_gdf.crs != "EPSG:4326":
+            joined_gdf = joined_gdf.to_crs("EPSG:4326")
 
-                    if joined_gdf.crs != "EPSG:4326":
-                        joined_gdf = joined_gdf.to_crs("EPSG:4326")
+        logger.info(f"Joined {len(joined_gdf)} communities with boundaries")
 
-                    logger.info(f"Joined {len(joined_gdf)} communities with boundaries")
-
-                    return joined_gdf
-
-            except Exception as e:
-                logger.error(f"Error fetching boundaries: {e}")
-                # Return CWB data without geometries
-                return gpd.GeoDataFrame(cwb_df)
+        return joined_gdf
 
     async def fetch(
         self,
