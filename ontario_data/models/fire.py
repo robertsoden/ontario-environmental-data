@@ -16,7 +16,9 @@ class FirePerimeter(BaseModel):
     start_date: Optional[str] = Field(None, description="Fire start date")
     end_date: Optional[str] = Field(None, description="Fire end date")
     fire_type: Optional[str] = Field(None, description="Fire type")
-    geometry: Dict = Field(..., description="GeoJSON geometry (Polygon or MultiPolygon)")
+    geometry: Dict = Field(
+        ..., description="GeoJSON geometry (Polygon or MultiPolygon)"
+    )
     data_source: str = Field(default="CWFIS", description="Data source")
 
     class Config:
@@ -30,14 +32,16 @@ class FirePerimeter(BaseModel):
                 "cause": "Lightning",
                 "geometry": {
                     "type": "Polygon",
-                    "coordinates": [[
-                        [-78.5, 44.5],
-                        [-78.4, 44.5],
-                        [-78.4, 44.6],
-                        [-78.5, 44.6],
-                        [-78.5, 44.5]
-                    ]]
-                }
+                    "coordinates": [
+                        [
+                            [-78.5, 44.5],
+                            [-78.4, 44.5],
+                            [-78.4, 44.6],
+                            [-78.5, 44.6],
+                            [-78.5, 44.5],
+                        ]
+                    ],
+                },
             }
         }
 

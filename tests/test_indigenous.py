@@ -1,8 +1,6 @@
 """Tests for Indigenous data source clients."""
 
-import io
 import json
-from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import geopandas as gpd
@@ -10,6 +8,7 @@ import pandas as pd
 import pytest
 from shapely.geometry import Point
 
+from ontario_data.sources.base import DataSourceError
 from ontario_data.sources.indigenous import (
     StatisticsCanadaWFSClient,
     WaterAdvisoriesClient,
@@ -72,21 +71,23 @@ class TestWaterAdvisoriesClient:
     def test_transform_row_active_advisory(self):
         """Test transforming a row with active advisory."""
         client = WaterAdvisoriesClient()
-        row = pd.Series({
-            "Advisory ID": "1",
-            "Community": "Test Community",
-            "First Nation": "Test Nation",
-            "Region": "Central",
-            "Province": "ON",
-            "Advisory Type": "Boil Water Advisory",
-            "Advisory Date": "2024-01-15",
-            "Lift Date": pd.NaT,
-            "Reason": "Equipment Failure",
-            "Water System": "Main System",
-            "Population": 1200,
-            "Latitude": 44.5,
-            "Longitude": -78.5,
-        })
+        row = pd.Series(
+            {
+                "Advisory ID": "1",
+                "Community": "Test Community",
+                "First Nation": "Test Nation",
+                "Region": "Central",
+                "Province": "ON",
+                "Advisory Type": "Boil Water Advisory",
+                "Advisory Date": "2024-01-15",
+                "Lift Date": pd.NaT,
+                "Reason": "Equipment Failure",
+                "Water System": "Main System",
+                "Population": 1200,
+                "Latitude": 44.5,
+                "Longitude": -78.5,
+            }
+        )
 
         result = client._transform_row(row)
 
@@ -101,21 +102,23 @@ class TestWaterAdvisoriesClient:
     def test_transform_row_lifted_advisory(self):
         """Test transforming a row with lifted advisory."""
         client = WaterAdvisoriesClient()
-        row = pd.Series({
-            "Advisory ID": "2",
-            "Community": "Test Community",
-            "First Nation": "Test Nation",
-            "Region": "Central",
-            "Province": "ON",
-            "Advisory Type": "Do Not Consume",
-            "Advisory Date": "2023-06-01",
-            "Lift Date": "2024-01-10",
-            "Reason": "High Contaminants",
-            "Water System": "Main System",
-            "Population": 800,
-            "Latitude": 44.1,
-            "Longitude": -78.0,
-        })
+        row = pd.Series(
+            {
+                "Advisory ID": "2",
+                "Community": "Test Community",
+                "First Nation": "Test Nation",
+                "Region": "Central",
+                "Province": "ON",
+                "Advisory Type": "Do Not Consume",
+                "Advisory Date": "2023-06-01",
+                "Lift Date": "2024-01-10",
+                "Reason": "High Contaminants",
+                "Water System": "Main System",
+                "Population": 800,
+                "Latitude": 44.1,
+                "Longitude": -78.0,
+            }
+        )
 
         result = client._transform_row(row)
 
@@ -168,10 +171,7 @@ class TestStatisticsCanadaWFSClient:
                         "IRNAME": "Curve Lake First Nation",
                         "PRCODE": "ON",
                     },
-                    "geometry": {
-                        "type": "Point",
-                        "coordinates": [-78.2289, 44.5319]
-                    }
+                    "geometry": {"type": "Point", "coordinates": [-78.2289, 44.5319]},
                 },
                 {
                     "type": "Feature",
@@ -179,12 +179,9 @@ class TestStatisticsCanadaWFSClient:
                         "IRNAME": "Alderville First Nation",
                         "PRCODE": "ON",
                     },
-                    "geometry": {
-                        "type": "Point",
-                        "coordinates": [-78.0753, 44.1194]
-                    }
-                }
-            ]
+                    "geometry": {"type": "Point", "coordinates": [-78.0753, 44.1194]},
+                },
+            ],
         }
 
     @pytest.mark.asyncio
@@ -198,7 +195,14 @@ class TestStatisticsCanadaWFSClient:
         mock_response.text = AsyncMock(return_value=json.dumps(mock_wfs_response))
 
         with patch("aiohttp.ClientSession") as mock_session:
-            mock_session.return_value.__aenter__.return_value.get.return_value.__aenter__.return_value = mock_response
+            # Properly configure the async context manager
+            mock_get_context = AsyncMock()
+            mock_get_context.__aenter__.return_value = mock_response
+            mock_get_context.__aexit__.return_value = None
+
+            # Make get() return the async context manager (use MagicMock, not AsyncMock)
+            mock_session_instance = mock_session.return_value.__aenter__.return_value
+            mock_session_instance.get = MagicMock(return_value=mock_get_context)
 
             gdf = await client.get_reserve_boundaries(province="ON")
 
@@ -216,12 +220,18 @@ class TestStatisticsCanadaWFSClient:
         mock_response.text = AsyncMock(return_value=json.dumps(mock_wfs_response))
 
         with patch("aiohttp.ClientSession") as mock_session:
-            mock_session.return_value.__aenter__.return_value.get.return_value.__aenter__.return_value = mock_response
+            # Properly configure the async context manager
+            mock_get_context = AsyncMock()
+            mock_get_context.__aenter__.return_value = mock_response
+            mock_get_context.__aexit__.return_value = None
+
+            # Make get() return the async context manager (use MagicMock, not AsyncMock)
+            mock_session_instance = mock_session.return_value.__aenter__.return_value
+            mock_session_instance.get = MagicMock(return_value=mock_get_context)
 
             first_nations = ["Curve Lake First Nation"]
             gdf = await client.get_reserve_boundaries(
-                province="ON",
-                first_nations=first_nations
+                province="ON", first_nations=first_nations
             )
 
             assert isinstance(gdf, gpd.GeoDataFrame)
@@ -235,9 +245,16 @@ class TestStatisticsCanadaWFSClient:
         mock_response.status = 500
 
         with patch("aiohttp.ClientSession") as mock_session:
-            mock_session.return_value.__aenter__.return_value.get.return_value.__aenter__.return_value = mock_response
+            # Properly configure the async context manager
+            mock_get_context = AsyncMock()
+            mock_get_context.__aenter__.return_value = mock_response
+            mock_get_context.__aexit__.return_value = None
 
-            with pytest.raises(Exception):  # Should raise DataSourceError
+            # Make get() return the async context manager (use MagicMock, not AsyncMock)
+            mock_session_instance = mock_session.return_value.__aenter__.return_value
+            mock_session_instance.get = MagicMock(return_value=mock_get_context)
+
+            with pytest.raises(DataSourceError):
                 await client.get_reserve_boundaries()
 
     @pytest.mark.asyncio
@@ -250,7 +267,14 @@ class TestStatisticsCanadaWFSClient:
         mock_response.text = AsyncMock(return_value=json.dumps(mock_wfs_response))
 
         with patch("aiohttp.ClientSession") as mock_session:
-            mock_session.return_value.__aenter__.return_value.get.return_value.__aenter__.return_value = mock_response
+            # Properly configure the async context manager
+            mock_get_context = AsyncMock()
+            mock_get_context.__aenter__.return_value = mock_response
+            mock_get_context.__aexit__.return_value = None
+
+            # Make get() return the async context manager (use MagicMock, not AsyncMock)
+            mock_session_instance = mock_session.return_value.__aenter__.return_value
+            mock_session_instance.get = MagicMock(return_value=mock_get_context)
 
             reserves = await client.fetch(province="ON")
 

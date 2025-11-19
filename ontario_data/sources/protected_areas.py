@@ -11,7 +11,6 @@ from typing import Dict, List, Optional
 
 import aiohttp
 import geopandas as gpd
-import pandas as pd
 
 from ontario_data.sources.base import BaseClient, DataSourceError
 
@@ -94,7 +93,9 @@ class OntarioGeoHubClient(BaseClient):
                 ) as response:
                     if response.status != 200:
                         logger.warning(f"Parks request failed: HTTP {response.status}")
-                        raise DataSourceError(f"Parks request failed: HTTP {response.status}")
+                        raise DataSourceError(
+                            f"Parks request failed: HTTP {response.status}"
+                        )
 
                     content = await response.text()
 
@@ -134,14 +135,17 @@ class OntarioGeoHubClient(BaseClient):
                     }
 
                     rename_dict = {
-                        old: new for old, new in column_mapping.items()
+                        old: new
+                        for old, new in column_mapping.items()
                         if old in gdf.columns
                     }
                     gdf = gdf.rename(columns=rename_dict)
 
                     # Set defaults for missing columns
                     if "name" not in gdf.columns:
-                        name_candidates = [c for c in gdf.columns if "name" in c.lower()]
+                        name_candidates = [
+                            c for c in gdf.columns if "name" in c.lower()
+                        ]
                         if name_candidates:
                             gdf = gdf.rename(columns={name_candidates[0]: "name"})
 
@@ -157,7 +161,9 @@ class OntarioGeoHubClient(BaseClient):
                     # Calculate area if missing
                     if "hectares" not in gdf.columns and "geometry" in gdf.columns:
                         gdf_projected = gdf.to_crs("EPSG:3347")  # Stats Canada Lambert
-                        gdf["hectares"] = gdf_projected.geometry.area / 10000  # m² to ha
+                        gdf["hectares"] = (
+                            gdf_projected.geometry.area / 10000
+                        )  # m² to ha
 
                     # Ensure CRS
                     if gdf.crs != "EPSG:4326":
@@ -172,7 +178,7 @@ class OntarioGeoHubClient(BaseClient):
 
             except Exception as e:
                 logger.error(f"Error fetching provincial parks: {e}")
-                raise DataSourceError(f"Failed to fetch provincial parks: {e}")
+                raise DataSourceError(f"Failed to fetch provincial parks: {e}") from e
 
     async def get_conservation_authorities(
         self,
@@ -221,7 +227,9 @@ class OntarioGeoHubClient(BaseClient):
                     self.CONSERVATION_AUTHORITIES_URL, params=params, timeout=300
                 ) as response:
                     if response.status != 200:
-                        logger.warning(f"Conservation authorities request failed: HTTP {response.status}")
+                        logger.warning(
+                            f"Conservation authorities request failed: HTTP {response.status}"
+                        )
                         raise DataSourceError(f"Request failed: HTTP {response.status}")
 
                     content = await response.text()
@@ -254,7 +262,9 @@ class OntarioGeoHubClient(BaseClient):
 
             except Exception as e:
                 logger.error(f"Error fetching conservation authorities: {e}")
-                raise DataSourceError(f"Failed to fetch conservation authorities: {e}")
+                raise DataSourceError(
+                    f"Failed to fetch conservation authorities: {e}"
+                ) from e
 
     async def fetch(
         self,
