@@ -161,6 +161,7 @@ jobs:
         import asyncio
         import json
         import os
+        import sys
         from pathlib import Path
         from datetime import datetime
 
@@ -171,6 +172,7 @@ jobs:
             OntarioGeoHubClient,
             SatelliteDataClient,
             StatisticsCanadaWFSClient,
+            validate_collection_results,
         )
 
         DATA_DIR = Path("data")
@@ -335,15 +337,90 @@ jobs:
             print(f"COLLECTION COMPLETE: {len(results['collected'])} sources processed")
             print("=" * 80)
 
+            # Validate collection results
+            print("\n" + "=" * 80)
+            print("VALIDATING COLLECTION RESULTS")
+            print("=" * 80)
+
+            # Transform results to match expected format for validation
+            validation_results = {
+                "timestamp": results["timestamp"],
+                "sources": results["collected"],
+            }
+
+            success, errors, warnings = validate_collection_results(validation_results)
+
+            if errors:
+                print("\n❌ VALIDATION ERRORS:")
+                for error in errors:
+                    print(f"   • {error}")
+
+            if warnings:
+                print("\n⚠️  VALIDATION WARNINGS:")
+                for warning in warnings:
+                    print(f"   • {warning}")
+
+            # Determine exit code
+            # Check which sources were selected and if they succeeded
+            selected_sources = {k: v for k, v in SELECTED.items() if v}
+            critical_sources = ["williams_treaty_communities", "provincial_parks"]
+
+            critical_failures = []
+            for source_name in critical_sources:
+                if SELECTED.get(source_name, False):  # If it was selected
+                    if source_name not in results["collected"]:
+                        critical_failures.append(f"{source_name}: Not collected")
+                    elif results["collected"][source_name].get("status") != "success":
+                        status = results["collected"][source_name].get("status", "unknown")
+                        error = results["collected"][source_name].get("error", "No error message")
+                        critical_failures.append(f"{source_name}: {status} - {error}")
+
+            if critical_failures:
+                print("\n" + "=" * 80)
+                print("❌ CRITICAL FAILURE")
+                print("=" * 80)
+                print("\nOne or more critical data sources failed:")
+                for failure in critical_failures:
+                    print(f"   • {failure}")
+                return 1  # Critical failure
+            elif errors:
+                print("\n" + "=" * 80)
+                print("⚠️  PARTIAL SUCCESS")
+                print("=" * 80)
+                print("\nSome non-critical sources failed, but critical ones succeeded.")
+                return 2  # Partial success
+            else:
+                print("\n" + "=" * 80)
+                print("✅ SUCCESS")
+                print("=" * 80)
+                print("\nAll selected data sources collected and validated successfully!")
+                return 0  # Success
+
         if __name__ == "__main__":
-            asyncio.run(main())
+            exit_code = asyncio.run(main())
+            sys.exit(exit_code)
         EOFPYTHON
 
         chmod +x collect_selected_data.py
 
     - name: Run selective data collection
       run: |
+        set +e  # Don't exit immediately on error, we want to capture exit code
         python collect_selected_data.py
+        exit_code=$?
+        echo "Collection exit code: $exit_code"
+
+        # Exit codes: 0 = success, 1 = critical failure, 2 = partial success
+        if [ $exit_code -eq 1 ]; then
+          echo "::error::Critical data collection failure"
+          exit 1
+        elif [ $exit_code -eq 2 ]; then
+          echo "::warning::Partial success - some non-critical sources failed"
+          exit 0  # Don't fail the workflow for partial success
+        else
+          echo "Data collection successful"
+          exit 0
+        fi
       env:
         COLLECT_WT_COMMUNITIES: ${{ github.event.inputs.williams_treaty_communities }}
         COLLECT_WT_BOUNDARIES: ${{ github.event.inputs.williams_treaty_boundaries }}
@@ -359,10 +436,24 @@ jobs:
       run: |
         echo ""
         echo "=== DATA STATUS AFTER COLLECTION ==="
+        set +e  # Don't fail on validation errors here
         python check_data_status.py
+        exit_code=$?
+        echo "Validation exit code: $exit_code"
+
+        # Always output status, but show warnings/errors clearly
+        if [ $exit_code -eq 1 ]; then
+          echo "::error::Critical data validation failure after collection"
+        elif [ $exit_code -eq 2 ]; then
+          echo "::warning::Some data files have issues after collection"
+        fi
+
+        # Don't exit here - we want the summary step to run
+        exit 0
 
     - name: Upload data artifacts
-      if: github.event.inputs.upload_artifacts == 'true' && success()
+      # Upload artifacts even if there were partial failures (but not if job was cancelled)
+      if: github.event.inputs.upload_artifacts == 'true' && !cancelled()
       uses: actions/upload-artifact@v4
       with:
         name: ontario-data-${{ github.run_number }}
@@ -370,6 +461,8 @@ jobs:
           data/processed/**/*.geojson
           data/processed/**/*.json
           data/processed/**/*.csv
+          collection_results.json
+          data_status.json
         retention-days: 30
         if-no-files-found: warn
 
