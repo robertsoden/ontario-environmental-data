@@ -140,8 +140,8 @@ jobs:
 
       - name: Generate directory index files
         run: |
-          # Generate index.html for each subdirectory so directory browsing works
-          find data -type d | while read dir; do
+          # Generate index.html for ALL subdirectories so directory browsing works
+          find data -type d | sort | while read dir; do
             # Skip the root data directory (already has index.html)
             if [ "$dir" = "data" ]; then
               continue
@@ -150,13 +150,9 @@ jobs:
             # Get relative path from data/
             rel_path="${dir#data/}"
 
-            # Count files in this directory (not subdirs)
-            file_count=$(find "$dir" -maxdepth 1 -type f | wc -l)
+            echo "Creating index for: $dir"
 
-            if [ "$file_count" -gt 0 ]; then
-              echo "Creating index for: $dir"
-
-              cat > "$dir/index.html" << 'HTMLEOF'
+            cat > "$dir/index.html" << 'HTMLEOF'
           <!DOCTYPE html>
           <html>
           <head>
@@ -168,7 +164,11 @@ jobs:
                   .file-list li { padding: 8px; border-bottom: 1px solid #eee; }
                   .file-list a { text-decoration: none; color: #2563eb; }
                   .file-list a:hover { text-decoration: underline; }
+                  .folder { color: #2563eb; font-weight: bold; }
+                  .folder:before { content: "📁 "; }
+                  .file:before { content: "📄 "; }
                   .size { color: #666; font-size: 0.9em; margin-left: 10px; }
+                  .empty { color: #999; font-style: italic; }
                   .back { margin: 20px 0; }
               </style>
           </head>
@@ -178,23 +178,37 @@ jobs:
               <ul class="file-list">
           HTMLEOF
 
-              # Add file listings
-              find "$dir" -maxdepth 1 -type f -not -name "index.html" | sort | while read file; do
-                filename=$(basename "$file")
-                filesize=$(du -h "$file" | cut -f1)
-                echo "                  <li><a href=\"$filename\">$filename</a><span class=\"size\">($filesize)</span></li>" >> "$dir/index.html"
-              done
+            # Add subdirectory listings first
+            has_content=0
+            find "$dir" -maxdepth 1 -type d -not -path "$dir" | sort | while read subdir; do
+              has_content=1
+              subdirname=$(basename "$subdir")
+              echo "                  <li class=\"folder\"><a href=\"$subdirname/\">$subdirname/</a></li>" >> "$dir/index.html"
+            done
 
-              # Close HTML
-              cat >> "$dir/index.html" << 'HTMLEOF'
+            # Add file listings
+            find "$dir" -maxdepth 1 -type f -not -name "index.html" | sort | while read file; do
+              has_content=1
+              filename=$(basename "$file")
+              filesize=$(du -h "$file" | cut -f1)
+              echo "                  <li class=\"file\"><a href=\"$filename\">$filename</a><span class=\"size\">($filesize)</span></li>" >> "$dir/index.html"
+            done
+
+            # If no files or subdirectories, show empty message
+            if [ "$(find "$dir" -maxdepth 1 -type f -not -name "index.html" | wc -l)" -eq 0 ] && \
+               [ "$(find "$dir" -maxdepth 1 -type d -not -path "$dir" | wc -l)" -eq 0 ]; then
+              echo "                  <li class=\"empty\">This directory is empty</li>" >> "$dir/index.html"
+            fi
+
+            # Close HTML
+            cat >> "$dir/index.html" << 'HTMLEOF'
               </ul>
           </body>
           </html>
           HTMLEOF
 
-              # Replace DIRECTORY_NAME with actual directory name
-              sed -i "s|DIRECTORY_NAME|$rel_path|g" "$dir/index.html"
-            fi
+            # Replace DIRECTORY_NAME with actual directory name
+            sed -i "s|DIRECTORY_NAME|$rel_path|g" "$dir/index.html"
           done
 
           echo "Generated directory indexes:"
