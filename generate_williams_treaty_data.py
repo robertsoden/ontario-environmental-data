@@ -14,6 +14,7 @@ import pandas as pd
 
 from ontario_data import (
     StatisticsCanadaWFSClient,
+    OntarioBoundariesClient,
     WILLIAMS_TREATY_FIRST_NATIONS,
 )
 
@@ -209,6 +210,75 @@ async def generate_all_data():
         results["skipped"].append("infrastructure_projects.geojson - CSV not downloaded")
 
     # ========================================================================
+    # 5. ONTARIO BOUNDARIES (Auto-generate from APIs and local shapefiles)
+    # ========================================================================
+    print("\n5. Ontario Administrative and Environmental Boundaries")
+    print("-" * 80)
+
+    try:
+        from ontario_data import OntarioBoundariesClient
+        boundaries_client = OntarioBoundariesClient()
+
+        # 5a. Provincial boundary
+        print("\n5a. Ontario Provincial Boundary...")
+        try:
+            ontario_boundary = await boundaries_client.get_provincial_boundary("ON")
+            output_file = OUTPUT_DIR / "boundaries" / "ontario_boundary.geojson"
+            ontario_boundary.to_file(output_file, driver="GeoJSON")
+            print(f"✅ Generated: {output_file} ({len(ontario_boundary)} feature)")
+            results["generated"].append(str(output_file))
+        except FileNotFoundError as e:
+            print(f"⚠️  Skipped: Provincial boundary shapefile not found")
+            print("   Download from: https://www12.statcan.gc.ca/census-recensement/2021/geo/sip-pis/boundary-limites/index2021-eng.cfm?year=21")
+            print("   Select: Provinces and territories, Cartographic boundary file, Shapefile")
+            print("   Extract lpr_000b21a_e.* files to data/raw/")
+            results["skipped"].append("ontario_boundary.geojson - Shapefile not downloaded")
+
+        # 5b. Municipal boundaries (all Ontario CSDs)
+        print("\n5b. Ontario Municipal Boundaries...")
+        try:
+            municipalities = await boundaries_client.get_municipalities("ON")
+            output_file = OUTPUT_DIR / "boundaries" / "ontario_municipalities.geojson"
+            municipalities.to_file(output_file, driver="GeoJSON")
+            print(f"✅ Generated: {output_file} ({len(municipalities)} municipalities)")
+            results["generated"].append(str(output_file))
+        except FileNotFoundError as e:
+            print(f"⚠️  Skipped: Census subdivisions shapefile not found")
+            print("   (This file is also needed for Community Well-Being data)")
+            print("   Download from: https://www12.statcan.gc.ca/census-recensement/2021/geo/sip-pis/boundary-limites/files-fichiers/lcsd000a21a_e.zip")
+            results["skipped"].append("ontario_municipalities.geojson - Shapefile not downloaded")
+
+        # 5c. Conservation Authorities
+        print("\n5c. Conservation Authority Boundaries...")
+        try:
+            authorities = await boundaries_client.get_conservation_authorities()
+            output_file = OUTPUT_DIR / "boundaries" / "conservation_authorities.geojson"
+            authorities.to_file(output_file, driver="GeoJSON")
+            print(f"✅ Generated: {output_file} ({len(authorities)} authorities)")
+            results["generated"].append(str(output_file))
+        except Exception as e:
+            print(f"❌ Error fetching conservation authorities: {e}")
+            results["errors"].append(f"Conservation authorities: {e}")
+
+        # 5d. Watersheds
+        print("\n5d. Great Lakes Watershed Boundaries...")
+        try:
+            watersheds = await boundaries_client.get_watersheds("great_lakes")
+            output_file = OUTPUT_DIR / "boundaries" / "great_lakes_watersheds.geojson"
+            watersheds.to_file(output_file, driver="GeoJSON")
+            print(f"✅ Generated: {output_file} ({len(watersheds)} watersheds)")
+            results["generated"].append(str(output_file))
+        except Exception as e:
+            print(f"❌ Error fetching watersheds: {e}")
+            results["errors"].append(f"Watersheds: {e}")
+
+    except Exception as e:
+        print(f"❌ Error generating boundary data: {e}")
+        import traceback
+        traceback.print_exc()
+        results["errors"].append(f"Boundaries: {e}")
+
+    # ========================================================================
     # SUMMARY
     # ========================================================================
     print("\n" + "=" * 80)
@@ -230,10 +300,14 @@ async def generate_all_data():
     print("\n" + "=" * 80)
     print("NEXT STEPS")
     print("=" * 80)
-    print("\nFor manual data files, download CSVs and place in data/raw/:")
+    print("\nFor manual data files, download and place in data/raw/:")
+    print("\nCSV files:")
     print("  - water_advisories.csv")
     print("  - CWB_2021.csv")
     print("  - ICIM_Export.csv")
+    print("\nShapefiles:")
+    print("  - lpr_000b21a_e.* (Provincial boundaries)")
+    print("  - lcsd000a21a_e.* (Census subdivisions - also used for CWB)")
     print("\nThen run this script again to process them.")
     print("=" * 80)
 
