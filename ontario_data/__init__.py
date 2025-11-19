@@ -29,6 +29,9 @@ from ontario_data.constants.regions import (
 
 # Data models
 from ontario_data.models.biodiversity import BiodiversityObservation
+
+# Data models
+from ontario_data.models.community import CommunityWellBeing, InfrastructureProject
 from ontario_data.models.fire import FirePerimeter
 from ontario_data.models.indigenous import ReserveBoundary, WaterAdvisory
 from ontario_data.models.protected_areas import ProtectedArea
@@ -59,13 +62,6 @@ from ontario_data.sources.protected_areas import OntarioGeoHubClient
 
 # Satellite data clients
 from ontario_data.sources.satellite import SatelliteDataClient
-
-# Data models
-from ontario_data.models.biodiversity import BiodiversityObservation
-from ontario_data.models.community import CommunityWellBeing, InfrastructureProject
-from ontario_data.models.fire import FirePerimeter
-from ontario_data.models.indigenous import ReserveBoundary, WaterAdvisory
-from ontario_data.models.protected_areas import ProtectedArea
 
 # Utilities
 from ontario_data.utils import filter_by_bounds, get_bounds_from_aoi, point_in_bounds

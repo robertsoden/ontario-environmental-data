@@ -21,34 +21,34 @@ print("=" * 80)
 print("\n[TEST 1] Importing all clients...")
 try:
     from ontario_data import (
-        # Biodiversity
-        INaturalistClient,
-        EBirdClient,
-        # Indigenous
-        WaterAdvisoriesClient,
-        StatisticsCanadaWFSClient,
-        # Fire
-        CWFISClient,
-        # Protected Areas
-        OntarioGeoHubClient,
+        # Models
+        CommunityWellBeing,
         # Community
         CommunityWellBeingClient,
+        # Fire
+        CWFISClient,
+        EBirdClient,
+        FirePerimeter,
+        # Biodiversity
+        INaturalistClient,
         InfrastructureClient,
+        InfrastructureProject,
+        # Protected Areas
+        OntarioGeoHubClient,
+        ProtectedArea,
+        ReserveBoundary,
         # Satellite
         SatelliteDataClient,
-        # Models
-        BiodiversityObservation,
+        StatisticsCanadaWFSClient,
+        # Indigenous
+        WaterAdvisoriesClient,
         WaterAdvisory,
-        ReserveBoundary,
-        FirePerimeter,
-        ProtectedArea,
-        CommunityWellBeing,
-        InfrastructureProject,
+        filter_by_bounds,
         # Utils
         get_bounds_from_aoi,
-        filter_by_bounds,
         point_in_bounds,
     )
+
     print("✅ All imports successful!")
 except ImportError as e:
     print(f"❌ Import failed: {e}")
@@ -58,37 +58,40 @@ except ImportError as e:
 print("\n[TEST 2] Instantiating all clients...")
 clients = {}
 try:
-    clients['inaturalist'] = INaturalistClient()
+    clients["inaturalist"] = INaturalistClient()
     print("  ✅ INaturalistClient")
 
-    clients['ebird'] = EBirdClient(api_key="test-key")  # Will work without real key for instantiation
+    clients["ebird"] = EBirdClient(
+        api_key="test-key"
+    )  # Will work without real key for instantiation
     print("  ✅ EBirdClient")
 
-    clients['water_advisories'] = WaterAdvisoriesClient()
+    clients["water_advisories"] = WaterAdvisoriesClient()
     print("  ✅ WaterAdvisoriesClient")
 
-    clients['statscan_wfs'] = StatisticsCanadaWFSClient()
+    clients["statscan_wfs"] = StatisticsCanadaWFSClient()
     print("  ✅ StatisticsCanadaWFSClient")
 
-    clients['cwfis'] = CWFISClient()
+    clients["cwfis"] = CWFISClient()
     print("  ✅ CWFISClient")
 
-    clients['ontario_geohub'] = OntarioGeoHubClient()
+    clients["ontario_geohub"] = OntarioGeoHubClient()
     print("  ✅ OntarioGeoHubClient")
 
-    clients['cwb'] = CommunityWellBeingClient()
+    clients["cwb"] = CommunityWellBeingClient()
     print("  ✅ CommunityWellBeingClient")
 
-    clients['infrastructure'] = InfrastructureClient()
+    clients["infrastructure"] = InfrastructureClient()
     print("  ✅ InfrastructureClient")
 
-    clients['satellite'] = SatelliteDataClient()
+    clients["satellite"] = SatelliteDataClient()
     print("  ✅ SatelliteDataClient")
 
     print(f"\n✅ All {len(clients)} clients instantiated successfully!")
 except Exception as e:
     print(f"❌ Client instantiation failed: {e}")
     import traceback
+
     traceback.print_exc()
     sys.exit(1)
 
@@ -111,7 +114,7 @@ try:
     reserve = ReserveBoundary(
         reserve_name="Test Reserve",
         first_nation="Test Nation",
-        geometry={"type": "Point", "coordinates": [-78.0, 44.0]}
+        geometry={"type": "Point", "coordinates": [-78.0, 44.0]},
     )
     geojson = reserve.to_geojson_feature()
     assert geojson["type"] == "Feature"
@@ -122,7 +125,18 @@ try:
         fire_id="TEST001",
         fire_year=2024,
         area_hectares=1500.0,
-        geometry={"type": "Polygon", "coordinates": [[[-78.5, 44.5], [-78.4, 44.5], [-78.4, 44.6], [-78.5, 44.6], [-78.5, 44.5]]]}
+        geometry={
+            "type": "Polygon",
+            "coordinates": [
+                [
+                    [-78.5, 44.5],
+                    [-78.4, 44.5],
+                    [-78.4, 44.6],
+                    [-78.5, 44.6],
+                    [-78.5, 44.5],
+                ]
+            ],
+        },
     )
     geojson = fire.to_geojson_feature()
     assert geojson["type"] == "Feature"
@@ -133,7 +147,7 @@ try:
         name="Test Park",
         designation="Provincial Park",
         managing_authority="Ontario Parks",
-        geometry={"type": "Point", "coordinates": [-78.0, 44.0]}
+        geometry={"type": "Point", "coordinates": [-78.0, 44.0]},
     )
     geojson = area.to_geojson_feature()
     assert geojson["type"] == "Feature"
@@ -165,6 +179,7 @@ try:
 except Exception as e:
     print(f"❌ Data model test failed: {e}")
     import traceback
+
     traceback.print_exc()
     sys.exit(1)
 
@@ -175,13 +190,15 @@ try:
     aoi = {
         "geometry": {
             "type": "Polygon",
-            "coordinates": [[
-                [-79.0, 44.0],
-                [-78.0, 44.0],
-                [-78.0, 45.0],
-                [-79.0, 45.0],
-                [-79.0, 44.0]
-            ]]
+            "coordinates": [
+                [
+                    [-79.0, 44.0],
+                    [-78.0, 44.0],
+                    [-78.0, 45.0],
+                    [-79.0, 45.0],
+                    [-79.0, 44.0],
+                ]
+            ],
         }
     }
     bounds = get_bounds_from_aoi(aoi)
@@ -207,27 +224,33 @@ try:
 except Exception as e:
     print(f"❌ Utility function test failed: {e}")
     import traceback
+
     traceback.print_exc()
     sys.exit(1)
 
 # Test 5: Test clients with sample data
 print("\n[TEST 5] Testing clients with sample data...")
 
+
 async def test_clients_async():
     """Test async client methods."""
 
     # Test WaterAdvisoriesClient with sample CSV
     print("\n  Testing WaterAdvisoriesClient...")
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False) as f:
-        f.write('Advisory ID,Community,First Nation,Region,Province,Advisory Type,Advisory Date,Lift Date,Reason,Water System,Population,Latitude,Longitude\n')
-        f.write('1,Curve Lake,Curve Lake First Nation,Central,ON,Boil Water Advisory,2024-01-15,,Equipment Failure,Main System,1200,44.5319,-78.2289\n')
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
+        f.write(
+            "Advisory ID,Community,First Nation,Region,Province,Advisory Type,Advisory Date,Lift Date,Reason,Water System,Population,Latitude,Longitude\n"
+        )
+        f.write(
+            "1,Curve Lake,Curve Lake First Nation,Central,ON,Boil Water Advisory,2024-01-15,,Equipment Failure,Main System,1200,44.5319,-78.2289\n"
+        )
         csv_path = f.name
 
     try:
         client = WaterAdvisoriesClient()
         advisories = await client.fetch_from_csv(csv_path)
         assert len(advisories) == 1
-        assert advisories[0]['community_name'] == 'Curve Lake'
+        assert advisories[0]["community_name"] == "Curve Lake"
         print("    ✅ WaterAdvisoriesClient.fetch_from_csv()")
 
         gdf = client.to_geodataframe(advisories)
@@ -241,32 +264,42 @@ async def test_clients_async():
     client = StatisticsCanadaWFSClient()
     williams_treaty_data = client.create_williams_treaty_data()
     assert len(williams_treaty_data) == 7
-    assert all(williams_treaty_data['province'] == 'ON')
+    assert all(williams_treaty_data["province"] == "ON")
     print("    ✅ StatisticsCanadaWFSClient.create_williams_treaty_data()")
 
     # Test CommunityWellBeingClient with sample CSV
     print("\n  Testing CommunityWellBeingClient...")
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False) as f:
-        f.write('CSD Code,CSD Name,Community Type,Population,Income Score,Education Score,Housing Score,Labour Force Activity Score,CWB Score\n')
-        f.write('3515014,Curve Lake First Nation,First Nation,900,45.2,38.7,52.1,48.9,46.2\n')
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
+        f.write(
+            "CSD Code,CSD Name,Community Type,Population,Income Score,Education Score,Housing Score,Labour Force Activity Score,CWB Score\n"
+        )
+        f.write(
+            "3515014,Curve Lake First Nation,First Nation,900,45.2,38.7,52.1,48.9,46.2\n"
+        )
         csv_path = f.name
 
     try:
         client = CommunityWellBeingClient()
         communities = await client.fetch_from_csv(csv_path)
         assert len(communities) == 1
-        assert communities[0]['csd_name'] == 'Curve Lake First Nation'
-        assert communities[0]['cwb_score'] == 46.2
+        assert communities[0]["csd_name"] == "Curve Lake First Nation"
+        assert communities[0]["cwb_score"] == 46.2
         print("    ✅ CommunityWellBeingClient.fetch_from_csv()")
     finally:
         Path(csv_path).unlink()
 
     # Test InfrastructureClient with sample CSV
     print("\n  Testing InfrastructureClient...")
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False, encoding='utf-8') as f:
+    with tempfile.NamedTemporaryFile(
+        mode="w", suffix=".csv", delete=False, encoding="utf-8"
+    ) as f:
         # Use commas instead of tabs for simpler test
-        f.write('Community,Community Number,Project Name,Description,Category,Status,Investment,Province,Latitude,Longitude\n')
-        f.write('Curve Lake First Nation,470,Water Plant,Water treatment,Water,Complete,2500000,ON,44.5319,-78.2289\n')
+        f.write(
+            "Community,Community Number,Project Name,Description,Category,Status,Investment,Province,Latitude,Longitude\n"
+        )
+        f.write(
+            "Curve Lake First Nation,470,Water Plant,Water treatment,Water,Complete,2500000,ON,44.5319,-78.2289\n"
+        )
         csv_path = f.name
 
     try:
@@ -274,6 +307,7 @@ async def test_clients_async():
         client = InfrastructureClient()
         # Directly try UTF-8 for this test
         import pandas as pd
+
         df = pd.read_csv(csv_path, encoding="utf-8")
         df = df.dropna(subset=["Latitude", "Longitude"])
         df["Latitude"] = pd.to_numeric(df["Latitude"], errors="coerce")
@@ -284,8 +318,8 @@ async def test_clients_async():
         for _, row in df.iterrows():
             projects.append(client._transform_row(row))
         assert len(projects) == 1
-        assert projects[0]['community_name'] == 'Curve Lake First Nation'
-        assert projects[0]['infrastructure_category'] == 'Water'
+        assert projects[0]["community_name"] == "Curve Lake First Nation"
+        assert projects[0]["infrastructure_category"] == "Water"
         print("    ✅ InfrastructureClient.fetch_from_csv()")
 
         gdf = client.to_geodataframe(projects)
@@ -302,7 +336,7 @@ async def test_clients_async():
     # Test land cover (may return None if rasterio unavailable)
     result = await client.get_land_cover(bounds, year=2020)
     if result is not None:
-        assert result['year'] == 2020
+        assert result["year"] == 2020
         print("    ✅ SatelliteDataClient.get_land_cover()")
     else:
         print("    ⚠️  SatelliteDataClient.get_land_cover() (rasterio not available)")
@@ -310,16 +344,17 @@ async def test_clients_async():
     # Test NDVI
     result = await client.get_ndvi(bounds, "2024-06-01", "2024-06-30")
     assert result is not None
-    assert 'bounds' in result
+    assert "bounds" in result
     print("    ✅ SatelliteDataClient.get_ndvi()")
 
     # Test elevation
     result = await client.get_elevation(bounds)
     assert result is not None
-    assert 'bounds' in result
+    assert "bounds" in result
     print("    ✅ SatelliteDataClient.get_elevation()")
 
     print("\n✅ All client tests passed!")
+
 
 # Run async tests
 try:
@@ -327,6 +362,7 @@ try:
 except Exception as e:
     print(f"❌ Async client test failed: {e}")
     import traceback
+
     traceback.print_exc()
     sys.exit(1)
 

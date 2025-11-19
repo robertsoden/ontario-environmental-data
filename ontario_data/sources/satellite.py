@@ -7,37 +7,34 @@ Provides clients for:
 """
 
 import logging
-from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, Optional, Tuple, Union
 
-import aiohttp
-import geopandas as gpd
 import numpy as np
-import pandas as pd
 
-from ontario_data.sources.base import BaseClient, DataSourceError
+from ontario_data.sources.base import BaseClient
 
 logger = logging.getLogger(__name__)
 
 # Optional raster dependencies
 try:
-    import rasterio
-    from rasterio.mask import mask as rio_mask
-    from rasterio.warp import calculate_default_transform, reproject, Resampling
-    from rasterio.io import MemoryFile
+    import rasterio  # noqa: F401
+
     RASTERIO_AVAILABLE = True
 except ImportError:
     RASTERIO_AVAILABLE = False
     logger.warning("rasterio not available - raster operations will be limited")
 
 try:
-    import pystac_client
-    import planetary_computer
+    import planetary_computer  # noqa: F401
+    import pystac_client  # noqa: F401
+
     PLANETARY_COMPUTER_AVAILABLE = True
 except ImportError:
     PLANETARY_COMPUTER_AVAILABLE = False
-    logger.warning("pystac-client/planetary-computer not available - NDVI operations will be limited")
+    logger.warning(
+        "pystac-client/planetary-computer not available - NDVI operations will be limited"
+    )
 
 
 class SatelliteDataClient(BaseClient):
@@ -54,7 +51,9 @@ class SatelliteDataClient(BaseClient):
 
     # Land cover data sources
     NRCAN_LANDCOVER_YEARS = [2010, 2015, 2020]
-    NRCAN_FTP_BASE = "https://ftp.maps.canada.ca/pub/nrcan_rncan/Land-cover_Couverture-du-sol/"
+    NRCAN_FTP_BASE = (
+        "https://ftp.maps.canada.ca/pub/nrcan_rncan/Land-cover_Couverture-du-sol/"
+    )
 
     # DEM data sources
     CDEM_FTP_BASE = "https://ftp.maps.canada.ca/pub/elevation/dem_mne/highresolution_hauteresolution/"
@@ -76,9 +75,7 @@ class SatelliteDataClient(BaseClient):
         super().__init__(rate_limit=rate_limit)
 
         if not RASTERIO_AVAILABLE:
-            logger.warning(
-                "Rasterio not installed. Install with: pip install rasterio"
-            )
+            logger.warning("Rasterio not installed. Install with: pip install rasterio")
 
         if not PLANETARY_COMPUTER_AVAILABLE:
             logger.warning(
@@ -177,21 +174,22 @@ class SatelliteDataClient(BaseClient):
             logger.error("rasterio required for NDVI operations")
             return None
 
-        # Determine FTP source based on resolution
+        # Determine source based on resolution
         if resolution == "250m":
-            ftp_base = self.STATCAN_MODIS_NDVI_FTP
             source_name = "Statistics Canada MODIS NDVI (250m)"
         elif resolution == "1km":
-            ftp_base = self.STATCAN_AVHRR_NDVI_FTP
             source_name = "Statistics Canada AVHRR/VIIRS NDVI (1km)"
         else:
             raise ValueError(f"Resolution must be '250m' or '1km', got '{resolution}'")
 
-        logger.info(f"Downloading NDVI from {source_name} for {start_date} to {end_date}")
+        logger.info(
+            f"Downloading NDVI from {source_name} for {start_date} to {end_date}"
+        )
 
         try:
             # Parse dates
             from datetime import datetime as dt
+
             start_dt = dt.strptime(start_date, "%Y-%m-%d")
             end_dt = dt.strptime(end_date, "%Y-%m-%d")
             year = start_dt.year
@@ -237,8 +235,8 @@ class SatelliteDataClient(BaseClient):
                     f"2. Extract zip file ({yearly_file})",
                     f"3. Find week {target_week} TIF file in extracted data",
                     f"4. Clip to bounds: {bounds}",
-                    f"5. Save to: {output_path}"
-                ]
+                    f"5. Save to: {output_path}",
+                ],
             }
 
         except Exception as e:
@@ -274,15 +272,15 @@ class SatelliteDataClient(BaseClient):
 
             with rasterio.open(
                 output_path,
-                'w',
-                driver='GTiff',
+                "w",
+                driver="GTiff",
                 height=height,
                 width=width,
                 count=1,
                 dtype=ndvi_data.dtype,
-                crs='EPSG:4326',
+                crs="EPSG:4326",
                 transform=transform,
-                compress='lzw'
+                compress="lzw",
             ) as dst:
                 dst.write(ndvi_data, 1)
 
@@ -375,15 +373,15 @@ class SatelliteDataClient(BaseClient):
 
         with rasterio.open(
             output_path,
-            'w',
-            driver='GTiff',
+            "w",
+            driver="GTiff",
             height=height,
             width=width,
             count=1,
             dtype=elevation.dtype,
-            crs='EPSG:4326',
+            crs="EPSG:4326",
             transform=transform,
-            compress='lzw'
+            compress="lzw",
         ) as dst:
             dst.write(elevation, 1)
 
@@ -422,9 +420,13 @@ class SatelliteDataClient(BaseClient):
         elif data_type == "ndvi":
             start_date = kwargs.get("start_date", "2024-06-01")
             end_date = kwargs.get("end_date", "2024-06-30")
-            return await self.get_ndvi(bounds, start_date, end_date, kwargs.get("output_path"))
+            return await self.get_ndvi(
+                bounds, start_date, end_date, kwargs.get("output_path")
+            )
         elif data_type == "elevation":
             resolution = kwargs.get("resolution", "20m")
-            return await self.get_elevation(bounds, resolution, kwargs.get("output_path"))
+            return await self.get_elevation(
+                bounds, resolution, kwargs.get("output_path")
+            )
         else:
             raise ValueError(f"Unknown data_type: {data_type}")
