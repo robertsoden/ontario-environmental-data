@@ -39,6 +39,9 @@ from ontario_data.sources.base import BaseClient, DataSourceError
 # Biodiversity clients
 from ontario_data.sources.biodiversity import EBirdClient, INaturalistClient
 
+# Boundary data clients
+from ontario_data.sources.boundaries import OntarioBoundariesClient
+
 # Community data clients
 from ontario_data.sources.community import (
     CommunityWellBeingClient,
@@ -85,6 +88,8 @@ __all__ = [
     # Biodiversity clients
     "EBirdClient",
     "INaturalistClient",
+    # Boundary data clients
+    "OntarioBoundariesClient",
     # Community data clients
     "CommunityWellBeingClient",
     "InfrastructureClient",
