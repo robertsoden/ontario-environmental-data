@@ -120,14 +120,14 @@ jobs:
 
               <h2>Available Data Directories</h2>
               <ul>
-                  <li><a href="data/processed/">data/processed/</a> - Processed datasets ready for visualization</li>
-                  <li><a href="data/raw/">data/raw/</a> - Raw source data</li>
-                  <li><a href="data/boundaries/">data/boundaries/</a> - Boundary files</li>
+                  <li><a href="processed/">processed/</a> - Processed datasets ready for visualization</li>
+                  <li><a href="raw/">raw/</a> - Raw source data</li>
+                  <li><a href="processed/boundaries/">processed/boundaries/</a> - Boundary files</li>
               </ul>
 
               <h2>Usage</h2>
               <p>Access data files directly via URL:</p>
-              <pre><code>https://robertsoden.github.io/ontario-environmental-data/data/processed/boundaries/williams_treaty.geojson</code></pre>
+              <pre><code>https://robertsoden.github.io/ontario-environmental-data/processed/boundaries/williams_treaty.geojson</code></pre>
 
               <h2>Related Projects</h2>
               <ul>
