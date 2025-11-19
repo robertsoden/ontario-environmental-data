@@ -20,14 +20,14 @@ on:
         required: true
         type: choice
         options:
-          - collect
           - status-only
-        default: collect
+          - collect
+        default: status-only
       # Data source selection
       williams_treaty_communities:
         description: '☐ Williams Treaty Communities (community points)'
         type: boolean
-        default: true
+        default: false
       williams_treaty_boundaries:
         description: '☐ Williams Treaty Boundaries (territory polygon) [✓ EXISTS]'
         type: boolean
@@ -39,7 +39,7 @@ on:
       provincial_parks:
         description: '☐ Provincial Parks (Ontario parks)'
         type: boolean
-        default: true
+        default: false
       conservation_authorities:
         description: '☐ Conservation Authorities (CA boundaries)'
         type: boolean
