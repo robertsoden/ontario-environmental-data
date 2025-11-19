@@ -86,11 +86,15 @@ jobs:
     - name: Check existing data status
       id: check
       run: |
+        # Run status check but don't fail - this is just informational
+        set +e  # Don't exit on error
         python check_data_status.py
+        # Ignore exit code - missing data before collection is expected
 
-        echo "## 📊 Current Data Status" >> $GITHUB_STEP_SUMMARY
+        echo "## 📊 Current Data Status (Before Collection)" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "Status check completed before data collection." >> $GITHUB_STEP_SUMMARY
+        echo "Note: Missing data is expected at this stage." >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
 
         if [ -f "data_status.json" ]; then
@@ -99,6 +103,9 @@ jobs:
           cat data_status.json | python -m json.tool 2>/dev/null || cat data_status.json
           echo '```' >> $GITHUB_STEP_SUMMARY
         fi
+
+        # Always succeed - this is just informational
+        exit 0
 
   collect-data:
     name: Collect Selected Data
