@@ -182,7 +182,7 @@ jobs:
               </style>
           </head>
           <body>
-              <div class="back"><a href="../">← Back</a> | <a href="/">Home</a></div>
+              <div class="back"><a href="../">← Back</a> | <a href="/ontario-environmental-data/">Home</a></div>
               <h1>DIRECTORY_NAME</h1>
               <ul class="file-list">
           HTMLEOF
