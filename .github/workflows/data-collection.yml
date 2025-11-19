@@ -1,5 +1,16 @@
 name: Data Collection
 
+# This workflow collects environmental data for Ontario.
+#
+# Usage:
+#   1. Go to Actions > Data Collection > Run workflow
+#   2. Select "collect" mode (default)
+#   3. Check which data sources you want to collect
+#   4. Click "Run workflow"
+#
+# By default, Williams Treaty Communities and Provincial Parks are selected.
+# You can select additional data sources or deselect the defaults as needed.
+
 on:
   workflow_dispatch:
     inputs:
@@ -11,12 +22,12 @@ on:
         options:
           - collect
           - status-only
-        default: status-only
+        default: collect
       # Data source selection
       williams_treaty_communities:
         description: '☐ Williams Treaty Communities (community points)'
         type: boolean
-        default: false
+        default: true
       williams_treaty_boundaries:
         description: '☐ Williams Treaty Boundaries (territory polygon) [✓ EXISTS]'
         type: boolean
@@ -28,7 +39,7 @@ on:
       provincial_parks:
         description: '☐ Provincial Parks (Ontario parks)'
         type: boolean
-        default: false
+        default: true
       conservation_authorities:
         description: '☐ Conservation Authorities (CA boundaries)'
         type: boolean
@@ -92,6 +103,40 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
+
+    - name: Validate data source selection
+      run: |
+        # Check if at least one data source is selected
+        selected_count=0
+        [ "${{ github.event.inputs.williams_treaty_communities }}" == "true" ] && selected_count=$((selected_count + 1))
+        [ "${{ github.event.inputs.williams_treaty_boundaries }}" == "true" ] && selected_count=$((selected_count + 1))
+        [ "${{ github.event.inputs.fire_perimeters }}" == "true" ] && selected_count=$((selected_count + 1))
+        [ "${{ github.event.inputs.provincial_parks }}" == "true" ] && selected_count=$((selected_count + 1))
+        [ "${{ github.event.inputs.conservation_authorities }}" == "true" ] && selected_count=$((selected_count + 1))
+        [ "${{ github.event.inputs.inaturalist }}" == "true" ] && selected_count=$((selected_count + 1))
+        [ "${{ github.event.inputs.satellite }}" == "true" ] && selected_count=$((selected_count + 1))
+
+        echo "Selected data sources: $selected_count"
+
+        if [ $selected_count -eq 0 ]; then
+          echo "::warning::No data sources selected! The workflow will run but won't collect any data."
+          echo "::warning::Please select at least one data source checkbox in the workflow inputs."
+          echo ""
+          echo "## ⚠️ No Data Sources Selected" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "You've run the workflow in **collect mode** but haven't selected any data sources!" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Please re-run the workflow and check at least one data source checkbox:" >> $GITHUB_STEP_SUMMARY
+          echo "- Williams Treaty Communities" >> $GITHUB_STEP_SUMMARY
+          echo "- Williams Treaty Boundaries" >> $GITHUB_STEP_SUMMARY
+          echo "- Fire Perimeters" >> $GITHUB_STEP_SUMMARY
+          echo "- Provincial Parks" >> $GITHUB_STEP_SUMMARY
+          echo "- Conservation Authorities" >> $GITHUB_STEP_SUMMARY
+          echo "- iNaturalist" >> $GITHUB_STEP_SUMMARY
+          echo "- Satellite Data" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "✓ $selected_count data source(s) selected for collection"
+        fi
 
     - name: Set up Python
       uses: actions/setup-python@v5
