@@ -7,14 +7,10 @@ visualization project.
 """
 
 import asyncio
-import json
 from pathlib import Path
-import geopandas as gpd
-import pandas as pd
 
 from ontario_data import (
     StatisticsCanadaWFSClient,
-    WILLIAMS_TREATY_FIRST_NATIONS,
 )
 
 # Configuration
@@ -25,13 +21,13 @@ RAW_DIR = DATA_DIR / "raw"
 # Williams Treaty reserve search keywords for NRCan database
 # NRCan uses reserve names (not First Nation names), so we search by keywords
 WILLIAMS_TREATY_KEYWORDS = [
-    'ALDERVILLE',
-    'CURVE LAKE',
-    'HIAWATHA',
-    'SCUGOG',
-    'CHRISTIAN',  # Chippewas of Beausoleil (Christian Island)
-    'GEORGINA',
-    'RAMA',
+    "ALDERVILLE",
+    "CURVE LAKE",
+    "HIAWATHA",
+    "SCUGOG",
+    "CHRISTIAN",  # Chippewas of Beausoleil (Christian Island)
+    "GEORGINA",
+    "RAMA",
 ]
 
 # Ensure directories exist
@@ -71,9 +67,7 @@ async def generate_all_data():
         # 1a. Generate ALL Ontario reserves
         print("\n1a. Fetching ALL Ontario Indian Reserves...")
         all_reserves_gdf = await client.get_reserve_boundaries(
-            province="ON",
-            first_nations=None,
-            max_features=500
+            province="ON", first_nations=None, max_features=500
         )
 
         if not all_reserves_gdf.empty:
@@ -90,25 +84,27 @@ async def generate_all_data():
         print(f"Search keywords: {WILLIAMS_TREATY_KEYWORDS}")
 
         wt_reserves_gdf = await client.get_reserve_boundaries(
-            province="ON",
-            first_nations=WILLIAMS_TREATY_KEYWORDS,
-            max_features=100
+            province="ON", first_nations=WILLIAMS_TREATY_KEYWORDS, max_features=100
         )
 
         if not wt_reserves_gdf.empty:
-            output_file = OUTPUT_DIR / "communities" / "williams_treaty_reserves.geojson"
+            output_file = (
+                OUTPUT_DIR / "communities" / "williams_treaty_reserves.geojson"
+            )
             wt_reserves_gdf.to_file(output_file, driver="GeoJSON")
             print(f"✅ Generated: {output_file} ({len(wt_reserves_gdf)} reserves)")
 
             # List reserve names
             print("\nWilliams Treaty reserves found:")
-            for idx, row in wt_reserves_gdf.iterrows():
+            for _idx, row in wt_reserves_gdf.iterrows():
                 print(f"  - {row['adminAreaNameEng']}")
 
             results["generated"].append(str(output_file))
         else:
             print("⚠️  No Williams Treaty reserve data returned from API")
-            results["skipped"].append("williams_treaty_reserves.geojson - API returned no data")
+            results["skipped"].append(
+                "williams_treaty_reserves.geojson - API returned no data"
+            )
 
     except Exception as e:
         print(f"❌ Error generating reserves: {e}")
@@ -125,6 +121,7 @@ async def generate_all_data():
         print(f"Found CSV: {water_csv}")
         try:
             from ontario_data import WaterAdvisoriesClient
+
             client = WaterAdvisoriesClient()
             advisories = await client.fetch_from_csv(water_csv, province="ON")
 
@@ -139,7 +136,9 @@ async def generate_all_data():
             results["errors"].append(f"Water advisories: {e}")
     else:
         print(f"⚠️  Skipped: {water_csv} not found")
-        print("   Download from: https://www.sac-isc.gc.ca/eng/1506514143353/1533317130660")
+        print(
+            "   Download from: https://www.sac-isc.gc.ca/eng/1506514143353/1533317130660"
+        )
         results["skipped"].append("water_advisories.geojson - CSV not downloaded")
 
     # ========================================================================
@@ -153,6 +152,7 @@ async def generate_all_data():
         print(f"Found CSV: {cwb_csv}")
         try:
             from ontario_data import CommunityWellBeingClient
+
             client = CommunityWellBeingClient()
             print("Fetching CWB data with census subdivision boundaries...")
 
@@ -160,25 +160,32 @@ async def generate_all_data():
             gdf = await client.get_cwb_with_boundaries(
                 cwb_csv,
                 province="ON",
-                first_nations_only=False  # Get all communities for context
+                first_nations_only=False,  # Get all communities for context
             )
 
-            if not gdf.empty and 'geometry' in gdf.columns:
+            if not gdf.empty and "geometry" in gdf.columns:
                 output_file = OUTPUT_DIR / "cwb" / "community_wellbeing.geojson"
                 gdf.to_file(output_file, driver="GeoJSON")
-                print(f"✅ Generated: {output_file} ({len(gdf)} communities with boundaries)")
+                print(
+                    f"✅ Generated: {output_file} ({len(gdf)} communities with boundaries)"
+                )
                 results["generated"].append(str(output_file))
             else:
                 print("⚠️  No CWB data with boundaries returned")
-                results["skipped"].append("community_wellbeing.geojson - No data with boundaries")
+                results["skipped"].append(
+                    "community_wellbeing.geojson - No data with boundaries"
+                )
         except Exception as e:
             print(f"❌ Error processing CWB data: {e}")
             import traceback
+
             traceback.print_exc()
             results["errors"].append(f"CWB: {e}")
     else:
         print(f"⚠️  Skipped: {cwb_csv} not found")
-        print("   Download from: https://www.sac-isc.gc.ca/eng/1419773101942/1419773233645")
+        print(
+            "   Download from: https://www.sac-isc.gc.ca/eng/1419773101942/1419773233645"
+        )
         results["skipped"].append("community_wellbeing.geojson - CSV not downloaded")
 
     # ========================================================================
@@ -192,11 +199,14 @@ async def generate_all_data():
         print(f"Found CSV: {infra_csv}")
         try:
             from ontario_data import InfrastructureClient
+
             client = InfrastructureClient()
             projects = await client.fetch_from_csv(infra_csv, province="ON")
 
             gdf = client.to_geodataframe(projects)
-            output_file = OUTPUT_DIR / "infrastructure" / "infrastructure_projects.geojson"
+            output_file = (
+                OUTPUT_DIR / "infrastructure" / "infrastructure_projects.geojson"
+            )
             gdf.to_file(output_file, driver="GeoJSON")
             print(f"✅ Generated: {output_file} ({len(gdf)} projects)")
             results["generated"].append(str(output_file))
@@ -206,7 +216,9 @@ async def generate_all_data():
     else:
         print(f"⚠️  Skipped: {infra_csv} not found")
         print("   Request export from Indigenous Services Canada ICIM")
-        results["skipped"].append("infrastructure_projects.geojson - CSV not downloaded")
+        results["skipped"].append(
+            "infrastructure_projects.geojson - CSV not downloaded"
+        )
 
     # ========================================================================
     # SUMMARY
@@ -215,16 +227,16 @@ async def generate_all_data():
     print("GENERATION COMPLETE")
     print("=" * 80)
     print(f"\n✅ Generated: {len(results['generated'])} files")
-    for f in results['generated']:
+    for f in results["generated"]:
         print(f"   - {f}")
 
     print(f"\n⚠️  Skipped: {len(results['skipped'])} files")
-    for s in results['skipped']:
+    for s in results["skipped"]:
         print(f"   - {s}")
 
-    if results['errors']:
+    if results["errors"]:
         print(f"\n❌ Errors: {len(results['errors'])}")
-        for e in results['errors']:
+        for e in results["errors"]:
             print(f"   - {e}")
 
     print("\n" + "=" * 80)
