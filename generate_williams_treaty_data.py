@@ -10,7 +10,6 @@ import asyncio
 from pathlib import Path
 
 from ontario_data import (
-    OntarioBoundariesClient,
     StatisticsCanadaWFSClient,
 )
 
@@ -229,6 +228,7 @@ async def generate_all_data():
 
     try:
         from ontario_data import OntarioBoundariesClient
+
         boundaries_client = OntarioBoundariesClient()
 
         # 5a. Provincial boundary
@@ -239,12 +239,18 @@ async def generate_all_data():
             ontario_boundary.to_file(output_file, driver="GeoJSON")
             print(f"✅ Generated: {output_file} ({len(ontario_boundary)} feature)")
             results["generated"].append(str(output_file))
-        except FileNotFoundError as e:
-            print(f"⚠️  Skipped: Provincial boundary shapefile not found")
-            print("   Download from: https://www12.statcan.gc.ca/census-recensement/2021/geo/sip-pis/boundary-limites/index2021-eng.cfm?year=21")
-            print("   Select: Provinces and territories, Cartographic boundary file, Shapefile")
+        except FileNotFoundError:
+            print("⚠️  Skipped: Provincial boundary shapefile not found")
+            print(
+                "   Download from: https://www12.statcan.gc.ca/census-recensement/2021/geo/sip-pis/boundary-limites/index2021-eng.cfm?year=21"
+            )
+            print(
+                "   Select: Provinces and territories, Cartographic boundary file, Shapefile"
+            )
             print("   Extract lpr_000b21a_e.* files to data/raw/")
-            results["skipped"].append("ontario_boundary.geojson - Shapefile not downloaded")
+            results["skipped"].append(
+                "ontario_boundary.geojson - Shapefile not downloaded"
+            )
 
         # 5b. Municipal boundaries (all Ontario CSDs)
         print("\n5b. Ontario Municipal Boundaries...")
@@ -254,11 +260,15 @@ async def generate_all_data():
             municipalities.to_file(output_file, driver="GeoJSON")
             print(f"✅ Generated: {output_file} ({len(municipalities)} municipalities)")
             results["generated"].append(str(output_file))
-        except FileNotFoundError as e:
-            print(f"⚠️  Skipped: Census subdivisions shapefile not found")
+        except FileNotFoundError:
+            print("⚠️  Skipped: Census subdivisions shapefile not found")
             print("   (This file is also needed for Community Well-Being data)")
-            print("   Download from: https://www12.statcan.gc.ca/census-recensement/2021/geo/sip-pis/boundary-limites/files-fichiers/lcsd000a21a_e.zip")
-            results["skipped"].append("ontario_municipalities.geojson - Shapefile not downloaded")
+            print(
+                "   Download from: https://www12.statcan.gc.ca/census-recensement/2021/geo/sip-pis/boundary-limites/files-fichiers/lcsd000a21a_e.zip"
+            )
+            results["skipped"].append(
+                "ontario_municipalities.geojson - Shapefile not downloaded"
+            )
 
         # 5c. Conservation Authorities
         print("\n5c. Conservation Authority Boundaries...")
@@ -287,6 +297,7 @@ async def generate_all_data():
     except Exception as e:
         print(f"❌ Error generating boundary data: {e}")
         import traceback
+
         traceback.print_exc()
         results["errors"].append(f"Boundaries: {e}")
 
