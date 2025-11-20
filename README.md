@@ -26,6 +26,23 @@ This library was created to share data access components between the [Ontario Na
 ✅ **GeoJSON Support**: Export observations as GeoJSON Features
 ✅ **Cultural Sensitivity**: Guidelines for working with Indigenous data
 ✅ **Comprehensive Tests**: 21 unit tests with >90% coverage
+✅ **S3 Storage**: Scalable cloud storage for processed datasets
+
+## Data Access
+
+All processed datasets are publicly available via AWS S3:
+
+- **Catalog**: https://ontario-environmental-data.s3.us-east-1.amazonaws.com/catalog.json
+- **Landing Page**: https://robertsoden.io/ontario-environmental-data/
+
+Datasets include:
+- Boundaries (municipalities, watersheds, provincial boundary)
+- Indigenous communities (Williams Treaty reserves and communities)
+- Protected areas (provincial parks, conservation authorities)
+- Biodiversity observations (eBird, iNaturalist)
+- Environmental features (fire perimeters, water quality)
+
+See [S3 Storage Guide](docs/S3_STORAGE_GUIDE.md) for details on accessing and using the data.
 
 ## Installation
 

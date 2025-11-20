@@ -1,0 +1,355 @@
+name: Collect Data and Upload to S3
+
+# This workflow collects Ontario environmental datasets and uploads them to S3
+# This replaces the GitHub artifacts approach for persistent, scalable storage
+
+on:
+  workflow_dispatch:
+    inputs:
+      datasets:
+        description: 'Comma-separated dataset IDs (leave empty for all enabled)'
+        required: false
+        type: string
+      force_upload:
+        description: 'Force upload even if no changes detected'
+        type: boolean
+        default: false
+  schedule:
+    # Run weekly on Sundays at 2 AM UTC
+    - cron: '0 2 * * 0'
+
+env:
+  S3_BUCKET: ontario-environmental-data
+  S3_REGION: us-east-1
+  S3_BASE_PATH: datasets
+
+jobs:
+  collect-data:
+    name: Collect Environmental Datasets
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.11"
+        cache: 'pip'
+
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y gdal-bin libgdal-dev
+
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e ".[dev]"
+
+    - name: Configure dataset selection
+      id: datasets
+      run: |
+        if [ -n "${{ github.event.inputs.datasets }}" ]; then
+          # User specified datasets
+          IFS=',' read -ra DATASETS <<< "${{ github.event.inputs.datasets }}"
+          for dataset in "${DATASETS[@]}"; do
+            dataset=$(echo "$dataset" | xargs)  # trim whitespace
+            export "COLLECT_${dataset^^}=true"
+            echo "COLLECT_${dataset^^}=true" >> $GITHUB_ENV
+          done
+        else
+          # Collect all enabled datasets
+          export COLLECT_WILLIAMS_TREATY_COMMUNITIES=true
+          export COLLECT_ONTARIO_RESERVES=true
+          export COLLECT_WILLIAMS_TREATY_RESERVES=true
+          export COLLECT_CONSERVATION_AUTHORITIES=true
+          export COLLECT_EBIRD=true
+          export COLLECT_COMMUNITY_WELLBEING=true
+          export COLLECT_FIRE_PERIMETERS=true
+          export COLLECT_ONTARIO_MUNICIPALITIES=true
+          export COLLECT_WATERSHEDS=true
+          export COLLECT_ONTARIO_BOUNDARY=true
+
+          # Add to env for next steps
+          echo "COLLECT_WILLIAMS_TREATY_COMMUNITIES=true" >> $GITHUB_ENV
+          echo "COLLECT_ONTARIO_RESERVES=true" >> $GITHUB_ENV
+          echo "COLLECT_WILLIAMS_TREATY_RESERVES=true" >> $GITHUB_ENV
+          echo "COLLECT_CONSERVATION_AUTHORITIES=true" >> $GITHUB_ENV
+          echo "COLLECT_EBIRD=true" >> $GITHUB_ENV
+          echo "COLLECT_COMMUNITY_WELLBEING=true" >> $GITHUB_ENV
+          echo "COLLECT_FIRE_PERIMETERS=true" >> $GITHUB_ENV
+          echo "COLLECT_ONTARIO_MUNICIPALITIES=true" >> $GITHUB_ENV
+          echo "COLLECT_WATERSHEDS=true" >> $GITHUB_ENV
+          echo "COLLECT_ONTARIO_BOUNDARY=true" >> $GITHUB_ENV
+        fi
+
+    - name: Collect datasets
+      env:
+        EBIRD_API_KEY: ${{ secrets.EBIRD_API_KEY }}
+      run: |
+        echo "🔄 Collecting datasets..."
+        python3 collect_data.py
+
+    - name: Check collection results
+      run: |
+        echo "=== Collection Results ==="
+        if [ -f "data/processed/collection_report.json" ]; then
+          cat data/processed/collection_report.json | python -m json.tool
+        else
+          echo "⚠️  No collection report found"
+          exit 1
+        fi
+
+        echo ""
+        echo "=== Processed Files ==="
+        find data/processed -type f -name "*.geojson" -exec ls -lh {} \;
+
+    - name: Upload datasets to S3
+      if: success()
+      env:
+        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        AWS_DEFAULT_REGION: ${{ env.S3_REGION }}
+      run: |
+        echo "☁️  Uploading datasets to S3..."
+
+        # Install AWS CLI
+        pip install awscli
+
+        # Upload all processed GeoJSON files to S3
+        # Organized by category subdirectories
+
+        # Boundaries
+        if [ -d "data/processed/boundaries" ]; then
+          echo "Uploading boundaries..."
+          aws s3 sync data/processed/boundaries/ \
+            s3://${{ env.S3_BUCKET }}/${{ env.S3_BASE_PATH }}/boundaries/ \
+            --acl public-read \
+            --cache-control "public, max-age=3600" \
+            --content-type "application/geo+json" \
+            --exclude "*" --include "*.geojson"
+        fi
+
+        # Communities
+        if [ -d "data/processed/communities" ]; then
+          echo "Uploading communities..."
+          aws s3 sync data/processed/communities/ \
+            s3://${{ env.S3_BUCKET }}/${{ env.S3_BASE_PATH }}/communities/ \
+            --acl public-read \
+            --cache-control "public, max-age=3600" \
+            --content-type "application/geo+json" \
+            --exclude "*" --include "*.geojson"
+        fi
+
+        # Community well-being
+        if [ -d "data/processed/cwb" ]; then
+          echo "Uploading community well-being data..."
+          aws s3 sync data/processed/cwb/ \
+            s3://${{ env.S3_BUCKET }}/${{ env.S3_BASE_PATH }}/community/ \
+            --acl public-read \
+            --cache-control "public, max-age=3600" \
+            --content-type "application/geo+json" \
+            --exclude "*" --include "*.geojson"
+        fi
+
+        # Protected areas
+        if [ -d "data/processed/protected_areas" ]; then
+          echo "Uploading protected areas..."
+          aws s3 sync data/processed/protected_areas/ \
+            s3://${{ env.S3_BUCKET }}/${{ env.S3_BASE_PATH }}/protected_areas/ \
+            --acl public-read \
+            --cache-control "public, max-age=3600" \
+            --content-type "application/geo+json" \
+            --exclude "*" --include "*.geojson"
+        fi
+
+        # Biodiversity
+        if [ -d "data/processed/biodiversity" ]; then
+          echo "Uploading biodiversity data..."
+          aws s3 sync data/processed/biodiversity/ \
+            s3://${{ env.S3_BUCKET }}/${{ env.S3_BASE_PATH }}/biodiversity/ \
+            --acl public-read \
+            --cache-control "public, max-age=86400" \
+            --content-type "application/geo+json" \
+            --exclude "*" --include "*.geojson"
+        fi
+
+        # Environmental (watersheds, fire perimeters, etc.)
+        # Check root level first
+        for file in data/processed/*.geojson; do
+          if [ -f "$file" ]; then
+            filename=$(basename "$file")
+            echo "Uploading $filename to environmental..."
+            aws s3 cp "$file" \
+              s3://${{ env.S3_BUCKET }}/${{ env.S3_BASE_PATH }}/environmental/$filename \
+              --acl public-read \
+              --cache-control "public, max-age=3600" \
+              --content-type "application/geo+json"
+          fi
+        done
+
+        # Upload collection report as metadata
+        if [ -f "data/processed/collection_report.json" ]; then
+          echo "Uploading collection report..."
+          aws s3 cp data/processed/collection_report.json \
+            s3://${{ env.S3_BUCKET }}/metadata/collection_report.json \
+            --acl public-read \
+            --cache-control "public, max-age=300" \
+            --content-type "application/json"
+        fi
+
+        echo "✅ Upload to S3 complete"
+
+    - name: Generate and upload catalog
+      if: success()
+      env:
+        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        AWS_DEFAULT_REGION: ${{ env.S3_REGION }}
+      run: |
+        echo "📋 Generating data catalog..."
+
+        # Generate catalog with S3 URLs
+        python3 << 'CATALOG_PY'
+        import json
+        from pathlib import Path
+        from datetime import datetime
+
+        # Read collection report
+        report_path = Path("data/processed/collection_report.json")
+        if not report_path.exists():
+            print("No collection report found")
+            exit(1)
+
+        with open(report_path) as f:
+            report = json.load(f)
+
+        # Base S3 URL
+        bucket = "${{ env.S3_BUCKET }}"
+        base_url = f"https://{bucket}.s3.${{ env.S3_REGION }}.amazonaws.com"
+
+        # Build catalog
+        catalog = {
+            "metadata": {
+                "generated": datetime.utcnow().isoformat() + "Z",
+                "source": "Ontario Environmental Data Registry",
+                "storage": {
+                    "provider": "AWS S3",
+                    "bucket": bucket,
+                    "region": "${{ env.S3_REGION }}",
+                    "base_url": base_url
+                }
+            },
+            "datasets": {}
+        }
+
+        # Add datasets from collection report
+        for dataset_id, info in report.get("sources", {}).items():
+            if info.get("status") == "success":
+                local_file = Path(info.get("file", ""))
+                if local_file.exists():
+                    # Determine category from path
+                    parts = local_file.parts
+                    if "boundaries" in parts:
+                        category = "boundaries"
+                    elif "communities" in parts:
+                        category = "communities"
+                    elif "cwb" in parts:
+                        category = "community"
+                    elif "protected_areas" in parts:
+                        category = "protected_areas"
+                    elif "biodiversity" in parts:
+                        category = "biodiversity"
+                    else:
+                        category = "environmental"
+
+                    filename = local_file.name
+                    s3_url = f"{base_url}/${{ env.S3_BASE_PATH }}/{category}/{filename}"
+
+                    # Get file size
+                    size_bytes = local_file.stat().st_size
+                    size_mb = round(size_bytes / 1024 / 1024, 2)
+
+                    catalog["datasets"][dataset_id] = {
+                        "id": dataset_id,
+                        "url": s3_url,
+                        "category": category,
+                        "format": "geojson",
+                        "size_mb": size_mb,
+                        "count": info.get("count", 0),
+                        "last_updated": report.get("timestamp", "")
+                    }
+
+        # Write catalog
+        catalog_path = Path("data/catalog.json")
+        with open(catalog_path, "w") as f:
+            json.dump(catalog, f, indent=2)
+
+        print(f"✅ Generated catalog with {len(catalog['datasets'])} datasets")
+        CATALOG_PY
+
+        # Upload catalog to S3
+        echo "Uploading catalog to S3..."
+        aws s3 cp data/catalog.json \
+          s3://${{ env.S3_BUCKET }}/catalog.json \
+          --acl public-read \
+          --cache-control "public, max-age=300" \
+          --content-type "application/json"
+
+        echo "✅ Catalog uploaded"
+
+    - name: Upload backup artifact
+      if: success()
+      uses: actions/upload-artifact@v4
+      with:
+        name: ontario-data-backup-${{ github.run_number }}
+        path: |
+          data/processed/**/*.geojson
+          data/processed/collection_report.json
+          data/catalog.json
+        retention-days: 30
+        compression-level: 9
+        if-no-files-found: error
+
+    - name: Create summary
+      if: always()
+      run: |
+        echo "## ☁️ S3 Data Upload Results" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Bucket:** \`${{ env.S3_BUCKET }}\`" >> $GITHUB_STEP_SUMMARY
+        echo "**Region:** ${{ env.S3_REGION }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Status:** ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+
+        if [ -f "data/catalog.json" ]; then
+          echo "### 📋 Data Catalog" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Catalog URL: https://${{ env.S3_BUCKET }}.s3.${{ env.S3_REGION }}.amazonaws.com/catalog.json" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Datasets Uploaded" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          python3 << 'SUMMARY_PY'
+        import json
+        from pathlib import Path
+
+        catalog_path = Path("data/catalog.json")
+        if catalog_path.exists():
+            with open(catalog_path) as f:
+                catalog = json.load(f)
+
+            for dataset_id, info in catalog["datasets"].items():
+                print(f"- **{dataset_id}**: {info['count']} features ({info['size_mb']} MB)")
+                print(f"  - URL: {info['url']}")
+        SUMMARY_PY
+        else
+          echo "❌ Catalog not generated" >> $GITHUB_STEP_SUMMARY
+        fi
+
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Next Steps" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "1. Data is now available at public S3 URLs" >> $GITHUB_STEP_SUMMARY
+        echo "2. Update GitHub Pages to reference S3 URLs" >> $GITHUB_STEP_SUMMARY
+        echo "3. Test data access from applications" >> $GITHUB_STEP_SUMMARY

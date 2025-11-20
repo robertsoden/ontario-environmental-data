@@ -1,0 +1,357 @@
+name: Publish Data to GitHub Pages (from S3)
+
+# This workflow publishes the landing page to GitHub Pages
+# Data is served directly from S3, so we only need to publish the catalog/index
+
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows: ["Collect Data and Upload to S3"]
+    types:
+      - completed
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+env:
+  S3_BUCKET: ontario-environmental-data
+  S3_REGION: us-east-1
+
+jobs:
+  build:
+    name: Build GitHub Pages Site
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Download catalog from S3
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ${{ env.S3_REGION }}
+        run: |
+          echo "📥 Downloading catalog from S3..."
+          pip install awscli
+
+          # Download catalog
+          mkdir -p data
+          aws s3 cp s3://${{ env.S3_BUCKET }}/catalog.json data/catalog.json
+
+          echo "✅ Catalog downloaded"
+          cat data/catalog.json | python -m json.tool | head -30
+
+      - name: Generate landing page
+        run: |
+          echo "🏗️  Generating landing page..."
+
+          # Create data directory for GitHub Pages
+          mkdir -p data
+
+          # Generate index.html with links to S3 data
+          python3 << 'INDEX_PY'
+          import json
+          from pathlib import Path
+          from datetime import datetime
+
+          # Read catalog
+          catalog_path = Path("data/catalog.json")
+          if not catalog_path.exists():
+              print("ERROR: Catalog not found")
+              exit(1)
+
+          with open(catalog_path) as f:
+              catalog = json.load(f)
+
+          # Base S3 URL
+          base_url = catalog["metadata"]["storage"]["base_url"]
+
+          # Group datasets by category
+          by_category = {}
+          for dataset_id, info in catalog["datasets"].items():
+              category = info.get("category", "other")
+              if category not in by_category:
+                  by_category[category] = []
+              by_category[category].append(info)
+
+          # Category display names
+          category_names = {
+              "boundaries": "Boundaries",
+              "communities": "Communities",
+              "community": "Community Well-Being",
+              "protected_areas": "Protected Areas",
+              "biodiversity": "Biodiversity",
+              "environmental": "Environmental"
+          }
+
+          # Generate HTML
+          html = f"""<!DOCTYPE html>
+          <html lang="en">
+          <head>
+              <meta charset="UTF-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+              <title>Ontario Environmental Data</title>
+              <style>
+                  body {{
+                      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+                      line-height: 1.6;
+                      max-width: 1200px;
+                      margin: 0 auto;
+                      padding: 20px;
+                      background: #f5f5f5;
+                  }}
+                  header {{
+                      background: white;
+                      padding: 30px;
+                      border-radius: 8px;
+                      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                      margin-bottom: 30px;
+                  }}
+                  h1 {{
+                      margin: 0 0 10px 0;
+                      color: #2c3e50;
+                  }}
+                  .subtitle {{
+                      color: #7f8c8d;
+                      font-size: 1.1em;
+                  }}
+                  .info-box {{
+                      background: #e8f4f8;
+                      border-left: 4px solid #3498db;
+                      padding: 15px;
+                      margin: 20px 0;
+                      border-radius: 4px;
+                  }}
+                  .datasets {{
+                      background: white;
+                      padding: 30px;
+                      border-radius: 8px;
+                      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                  }}
+                  .category {{
+                      margin: 30px 0;
+                  }}
+                  .category h3 {{
+                      color: #2c3e50;
+                      border-bottom: 2px solid #3498db;
+                      padding-bottom: 10px;
+                      margin-bottom: 20px;
+                  }}
+                  details {{
+                      margin: 15px 0;
+                      border: 1px solid #e0e0e0;
+                      border-radius: 6px;
+                      overflow: hidden;
+                  }}
+                  summary {{
+                      cursor: pointer;
+                      font-weight: 600;
+                      padding: 15px;
+                      background: #f8f9fa;
+                      user-select: none;
+                      display: flex;
+                      justify-content: space-between;
+                      align-items: center;
+                  }}
+                  summary:hover {{
+                      background: #e9ecef;
+                  }}
+                  .dataset-content {{
+                      padding: 20px;
+                      background: white;
+                  }}
+                  .dataset-meta {{
+                      display: flex;
+                      gap: 20px;
+                      margin: 15px 0;
+                      flex-wrap: wrap;
+                  }}
+                  .meta-item {{
+                      padding: 6px 12px;
+                      background: #f0f4f8;
+                      border-radius: 4px;
+                      font-size: 0.9em;
+                      color: #555;
+                  }}
+                  .download-link {{
+                      display: inline-block;
+                      margin: 10px 0;
+                      padding: 10px 20px;
+                      background: #3498db;
+                      color: white;
+                      text-decoration: none;
+                      border-radius: 5px;
+                      font-weight: 500;
+                  }}
+                  .download-link:hover {{
+                      background: #2980b9;
+                  }}
+                  .badge {{
+                      display: inline-block;
+                      padding: 4px 8px;
+                      border-radius: 3px;
+                      font-size: 0.85em;
+                      font-weight: 500;
+                  }}
+                  .badge-count {{
+                      background: #e8f5e9;
+                      color: #2e7d32;
+                  }}
+                  .badge-size {{
+                      background: #fff3e0;
+                      color: #e65100;
+                  }}
+                  footer {{
+                      margin-top: 40px;
+                      padding: 20px;
+                      text-align: center;
+                      color: #7f8c8d;
+                      font-size: 0.9em;
+                  }}
+                  code {{
+                      background: #f4f4f4;
+                      padding: 2px 6px;
+                      border-radius: 3px;
+                      font-family: "Courier New", monospace;
+                  }}
+              </style>
+          </head>
+          <body>
+              <header>
+                  <h1>Ontario Environmental Data</h1>
+                  <p class="subtitle">Centralized access to Ontario's environmental and biodiversity datasets</p>
+              </header>
+
+              <div class="info-box">
+                  <p><strong>Data Storage:</strong> All datasets are hosted on AWS S3 with public HTTPS access</p>
+                  <p><strong>Format:</strong> GeoJSON (WGS84, EPSG:4326)</p>
+                  <p><strong>Updates:</strong> Weekly automated collection</p>
+                  <p><strong>Catalog API:</strong> <a href="{base_url}/catalog.json" target="_blank">{base_url}/catalog.json</a></p>
+              </div>
+
+              <div class="datasets">
+                  <h2>Available Datasets</h2>
+          """
+
+          # Sort categories
+          category_order = ["boundaries", "communities", "community", "protected_areas", "biodiversity", "environmental"]
+
+          for cat in category_order:
+              if cat not in by_category:
+                  continue
+
+              cat_name = category_names.get(cat, cat.title())
+              datasets = sorted(by_category[cat], key=lambda x: x["id"])
+
+              html += f'\n        <div class="category">\n'
+              html += f'          <h3>{cat_name}</h3>\n'
+
+              for dataset in datasets:
+                  dataset_id = dataset["id"]
+                  url = dataset["url"]
+                  count = dataset.get("count", 0)
+                  size_mb = dataset.get("size_mb", 0)
+
+                  html += f'''
+                  <details>
+                      <summary>
+                          <span>{dataset_id.replace("_", " ").title()}</span>
+                          <span>
+                              <span class="badge badge-count">{count:,} features</span>
+                              <span class="badge badge-size">{size_mb} MB</span>
+                          </span>
+                      </summary>
+                      <div class="dataset-content">
+                          <p><strong>Dataset ID:</strong> <code>{dataset_id}</code></p>
+                          <div class="dataset-meta">
+                              <span class="meta-item">Category: {dataset["category"]}</span>
+                              <span class="meta-item">Format: {dataset["format"].upper()}</span>
+                              <span class="meta-item">Features: {count:,}</span>
+                              <span class="meta-item">Size: {size_mb} MB</span>
+                          </div>
+                          <a href="{url}" class="download-link" download>Download GeoJSON</a>
+                          <p style="margin-top: 15px; font-size: 0.9em; color: #666;">
+                              <strong>Direct URL:</strong><br>
+                              <code style="word-break: break-all; display: block; padding: 8px;">{url}</code>
+                          </p>
+                      </div>
+                  </details>
+          '''
+
+              html += '        </div>\n'
+
+          html += f"""
+              </div>
+
+              <footer>
+                  <p>Generated: {datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")}</p>
+                  <p>
+                      <a href="https://github.com/robertsoden/ontario-environmental-data">View on GitHub</a> |
+                      <a href="{base_url}/catalog.json">API Catalog</a>
+                  </p>
+              </footer>
+          </body>
+          </html>
+          """
+
+          # Write index.html
+          index_path = Path("data/index.html")
+          with open(index_path, "w") as f:
+              f.write(html)
+
+          print(f"✅ Generated index.html with {len(catalog['datasets'])} datasets")
+          INDEX_PY
+
+          echo "✅ Landing page generated"
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: 'data'
+
+      - name: Create summary
+        run: |
+          echo "## 📄 GitHub Pages Build Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Status:** Site built successfully" >> $GITHUB_STEP_SUMMARY
+          echo "**Data Source:** S3 bucket \`${{ env.S3_BUCKET }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Files included:" >> $GITHUB_STEP_SUMMARY
+          echo "- \`index.html\` - Landing page with dataset links" >> $GITHUB_STEP_SUMMARY
+          echo "- \`catalog.json\` - API catalog" >> $GITHUB_STEP_SUMMARY
+
+  deploy:
+    name: Deploy to GitHub Pages
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+      - name: Create deployment summary
+        run: |
+          echo "## ✅ Deployment Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Site URL: ${{ steps.deployment.outputs.page_url }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "All datasets are served directly from S3 for optimal performance." >> $GITHUB_STEP_SUMMARY
