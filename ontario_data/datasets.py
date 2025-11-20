@@ -345,9 +345,10 @@ async def _collect_fire_perimeters() -> Dict[str, Any]:
 
     client = CWFISClient()
     fire_gdf = await client.get_fire_perimeters(
-        province="ON",
+        bounds=None,
         start_year=1976,
-        end_year=2024
+        end_year=2024,
+        province="ON"
     )
 
     if fire_gdf.empty:
