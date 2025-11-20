@@ -388,12 +388,12 @@ DATASETS: Dict[str, DatasetDefinition] = {
         name="Williams Treaty Boundaries",
         description="Williams Treaty territory boundary polygon",
         category="boundaries",
-        collect_fn=None,  # Static dataset - manually curated
+        collect_fn=None,  # Static dataset - manually curated, no collection needed
         output_path=Path("data/processed/boundaries/williams_treaty.geojson"),
         output_format="geojson",
         min_records=1,
         required_fields=["ENAME"],
-        enabled=False,  # Static file already in repo
+        enabled=True,  # Static file that should be served
     ),
 
     "ontario_reserves": DatasetDefinition(

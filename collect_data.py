@@ -97,11 +97,20 @@ async def collect_selected_data():
 
         # Check if collection function exists
         if not dataset.collect_fn:
-            print(f"\n⚠️  {dataset.name}: No collection function implemented")
-            results["sources"][dataset_id] = {
-                "status": "not_implemented",
-                "note": "Collection function not yet implemented"
-            }
+            # Check if this is a static file that already exists
+            if dataset.output_path and dataset.output_path.exists():
+                print(f"\n📄 {dataset.name}: Static file (no collection needed)")
+                results["sources"][dataset_id] = {
+                    "status": "static",
+                    "note": "Static file - no collection required",
+                    "file": str(dataset.output_path)
+                }
+            else:
+                print(f"\n⚠️  {dataset.name}: No collection function implemented")
+                results["sources"][dataset_id] = {
+                    "status": "not_implemented",
+                    "note": "Collection function not yet implemented"
+                }
             continue
 
         # Display section header

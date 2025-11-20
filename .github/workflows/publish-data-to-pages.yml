@@ -119,12 +119,13 @@ jobs:
               <h2>Data Catalog</h2>
               <ul>
                   <li><a href="catalog.json">catalog.json</a> - List of available datasets</li>
-                  <li><a href="layers.json">layers.json</a> - MapLibre layer configuration</li>
+                  <li><a href="layers.json">layers.json</a> - MapLibre layer configuration (JSON)</li>
+                  <li><a href="layers.yaml">layers.yaml</a> - MapLibre layer configuration (YAML)</li>
               </ul>
-              <h2>Related Projects</h2>
+              <h2>Browse Data</h2>
               <ul>
-                  <li><a href="https://github.com/robertsoden/ontario-environmental-data">ontario-environmental-data</a> - Data repository</li>
-                  <li><a href="https://github.com/robertsoden/williams-treaties">williams-treaties</a> - Map visualization</li>
+                  <li><a href="processed/">processed/</a> - Processed datasets</li>
+                  <li><a href="raw/">raw/</a> - Raw data files</li>
               </ul>
           </body>
           </html>
@@ -214,14 +215,12 @@ jobs:
               "unavailable_layers": []
           }
 
-          data_dir = Path("data")
-
           for dataset_id, dataset in DATASETS.items():
               # Only process enabled datasets that have output files
               if not dataset.enabled or not dataset.output_path:
                   continue
 
-              file_path = data_dir / dataset.output_path
+              file_path = Path(dataset.output_path)
 
               if file_path.exists():
                   # Dataset exists
@@ -254,7 +253,7 @@ jobs:
                   })
 
           # Write catalog as JSON
-          with open(data_dir / "catalog.json", "w") as f:
+          with open("data/catalog.json", "w") as f:
               json.dump(catalog, f, indent=2)
 
           # Generate YAML configuration for map
@@ -279,11 +278,11 @@ jobs:
               })
 
           # Write map configuration as YAML
-          with open(data_dir / "layers.yaml", "w") as f:
+          with open("data/layers.yaml", "w") as f:
               yaml.dump(map_config, f, default_flow_style=False, sort_keys=False)
 
           # Also write as JSON for easier consumption
-          with open(data_dir / "layers.json", "w") as f:
+          with open("data/layers.json", "w") as f:
               json.dump(map_config, f, indent=2)
 
           # Print summary
