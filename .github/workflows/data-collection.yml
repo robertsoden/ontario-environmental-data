@@ -224,7 +224,7 @@ jobs:
 
     - name: Upload data artifacts
       # Upload artifacts even if there were partial failures (but not if job was cancelled)
-      if: github.event.inputs.upload_artifacts == 'true' && !cancelled()
+      if: success() || failure()
       uses: actions/upload-artifact@v4
       with:
         name: ontario-data-${{ github.run_number }}
