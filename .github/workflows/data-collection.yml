@@ -236,16 +236,18 @@ jobs:
         PYTHON_EOF
         fi
 
+    - name: Prepare data directories
+      run: |
+        # Create necessary directories
+        mkdir -p data/raw data/processed
+
     - name: Check before status
       run: |
         echo "=== DATA STATUS BEFORE COLLECTION ==="
         python check_data_status.py || echo "No data status check available yet"
 
-    - name: Prepare data directories and files
+    - name: Download missing raw data files
       run: |
-        # Create necessary directories
-        mkdir -p data/raw data/processed
-
         # Download required CSV files if they don't exist
         # Note: Water advisories CSV - check if exists, if not download
         if [ ! -f "data/raw/water_advisories_historical.csv" ]; then
@@ -263,11 +265,17 @@ jobs:
         if [ ! -f "data/raw/lcsd000a21a_e.shp" ]; then
           echo "📥 Downloading Census Subdivision boundaries..."
           cd data/raw
-          wget -q https://www12.statcan.gc.ca/census-recensement/2021/geo/sip-pis/boundary-limites/files-fichiers/lcsd000a21a_e.zip
-          unzip -q lcsd000a21a_e.zip
-          rm lcsd000a21a_e.zip
-          cd ../..
-          echo "✅ Census boundaries downloaded"
+          wget --timeout=60 --tries=3 -q https://www12.statcan.gc.ca/census-recensement/2021/geo/sip-pis/boundary-limites/files-fichiers/lcsd000a21a_e.zip
+          if [ $? -eq 0 ]; then
+            unzip -q lcsd000a21a_e.zip
+            rm lcsd000a21a_e.zip
+            cd ../..
+            echo "✅ Census boundaries downloaded"
+          else
+            cd ../..
+            echo "❌ Failed to download census boundaries"
+            exit 1
+          fi
         else
           echo "✅ Census boundaries already exist"
         fi
