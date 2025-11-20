@@ -28,6 +28,11 @@ on:
         type: string
         required: false
         default: ''
+      overwrite:
+        description: 'Overwrite existing datasets? If unchecked, will skip datasets that already exist in artifacts.'
+        type: boolean
+        required: false
+        default: false
 
 jobs:
   check-status:
@@ -128,10 +133,113 @@ jobs:
         python -m pip install --upgrade pip
         pip install -e ".[dev]"
 
+    - name: Download previous data artifact
+      continue-on-error: true
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+
+          // Find the most recent successful Data Collection run
+          const runs = await github.rest.actions.listWorkflowRuns({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            workflow_id: 'data-collection.yml',
+            status: 'completed',
+            per_page: 5
+          });
+
+          if (runs.data.workflow_runs.length === 0) {
+            console.log('No previous collection runs found - starting fresh');
+            return;
+          }
+
+          // Look for artifacts in recent runs
+          for (const run of runs.data.workflow_runs) {
+            const artifacts = await github.rest.actions.listWorkflowRunArtifacts({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              run_id: run.id,
+            });
+
+            const dataArtifact = artifacts.data.artifacts.find(a =>
+              a.name.startsWith("ontario-data-")
+            );
+
+            if (dataArtifact) {
+              console.log(`Found previous artifact: ${dataArtifact.name} from run ${run.run_number}`);
+
+              const download = await github.rest.actions.downloadArtifact({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                artifact_id: dataArtifact.id,
+                archive_format: 'zip',
+              });
+
+              fs.writeFileSync('${{github.workspace}}/previous-data.zip', Buffer.from(download.data));
+              console.log('Downloaded previous data artifact');
+              return;
+            }
+          }
+
+          console.log('No previous data artifacts found - starting fresh');
+
+    - name: Extract previous data
+      continue-on-error: true
+      run: |
+        if [ -f previous-data.zip ]; then
+          echo "Extracting previous data artifact..."
+          unzip -o previous-data.zip -d .
+          echo "Previous data extracted:"
+          find data -type f 2>/dev/null | head -20 || echo "No previous data files"
+        else
+          echo "No previous data to extract - starting fresh"
+        fi
+
+    - name: Check which datasets already exist
+      id: check_existing
+      run: |
+        echo "Checking which datasets already exist in artifacts..."
+
+        # Create a summary of existing datasets
+        existing_datasets=""
+
+        if [ "${{ github.event.inputs.overwrite }}" == "true" ]; then
+          echo "⚠️  OVERWRITE mode enabled - will re-collect all selected datasets"
+        else
+          echo "Checking for existing datasets to skip..."
+
+          python3 << 'PYTHON_EOF'
+        import os
+        import sys
+        from pathlib import Path
+
+        sys.path.insert(0, os.getcwd())
+        from ontario_data.datasets import DATASETS
+
+        existing = []
+        for dataset_id, dataset in DATASETS.items():
+            if not dataset.enabled or not dataset.output_path:
+                continue
+
+            if Path(dataset.output_path).exists():
+                existing.append(dataset_id)
+                print(f"  ✓ {dataset_id}: exists, will SKIP unless overwrite=true")
+                # Set env var to skip this dataset
+                env_var = f'SKIP_{dataset_id.upper()}'
+                with open(os.getenv('GITHUB_ENV'), 'a') as f:
+                    f.write(f'{env_var}=true\n')
+            else:
+                print(f"  ✗ {dataset_id}: missing, will collect if selected")
+
+        print(f"\n{len(existing)} datasets already exist and will be skipped")
+        PYTHON_EOF
+        fi
+
     - name: Check before status
       run: |
         echo "=== DATA STATUS BEFORE COLLECTION ==="
-        python check_data_status.py
+        python check_data_status.py || echo "No data status check available yet"
 
     - name: Prepare data directories and files
       run: |
@@ -167,6 +275,7 @@ jobs:
     - name: Set environment variables for collection
       run: |
         echo "Mode: ${{ github.event.inputs.mode }}"
+        echo "Overwrite: ${{ github.event.inputs.overwrite }}"
 
         if [ "${{ github.event.inputs.mode }}" == "collect-all" ]; then
           echo "Setting up to collect ALL enabled datasets from registry"
@@ -174,13 +283,22 @@ jobs:
         import os
         from ontario_data.datasets import get_enabled_datasets
 
+        overwrite = "${{ github.event.inputs.overwrite }}" == "true"
+
         # Write env vars to GITHUB_ENV
         env_file = os.getenv('GITHUB_ENV')
         with open(env_file, 'a') as f:
             for dataset in get_enabled_datasets():
-                env_var = f'COLLECT_{dataset.id.upper()}'
-                f.write(f'{env_var}=true\n')
-                print(f'  ✓ {env_var}=true')
+                skip_var = f'SKIP_{dataset.id.upper()}'
+                collect_var = f'COLLECT_{dataset.id.upper()}'
+
+                # Check if dataset should be skipped
+                if not overwrite and os.getenv(skip_var) == 'true':
+                    print(f'  ⏭️  {dataset.id}: skipped (already exists)')
+                    continue
+
+                f.write(f'{collect_var}=true\n')
+                print(f'  ✓ {collect_var}=true')
         PYTHON_EOF
 
         elif [ "${{ github.event.inputs.mode }}" == "collect-selected" ]; then
@@ -196,8 +314,16 @@ jobs:
           for dataset_id in $datasets_input; do
             dataset_id=$(echo "$dataset_id" | xargs)  # trim whitespace
             if [ ! -z "$dataset_id" ]; then
-              env_var="COLLECT_${dataset_id^^}"
-              echo "${env_var}=true" >> $GITHUB_ENV
+              skip_var="SKIP_${dataset_id^^}"
+              collect_var="COLLECT_${dataset_id^^}"
+
+              # Check if dataset should be skipped
+              if [ "${{ github.event.inputs.overwrite }}" != "true" ] && [ "${!skip_var}" == "true" ]; then
+                echo "  ⏭️  $dataset_id: skipped (already exists)"
+                continue
+              fi
+
+              echo "${collect_var}=true" >> $GITHUB_ENV
               echo "  ✓ $dataset_id"
             fi
           done
