@@ -189,10 +189,14 @@ class OntarioGeoHubClient(BaseClient):
                     logger.info(f"Fetched {len(gdf)} provincial parks")
                     return gdf
 
+            except DataSourceError:
+                # Re-raise DataSourceError (these are intentional API errors)
+                raise
             except Exception as e:
+                # Catch network/connection errors and return empty GeoDataFrame
                 logger.error(f"Error fetching provincial parks: {e}")
                 logger.info(
-                    "Returning empty GeoDataFrame due to error. "
+                    "Returning empty GeoDataFrame due to network error. "
                     "Check network connection and API availability."
                 )
                 return gpd.GeoDataFrame(geometry=[], crs="EPSG:4326")
