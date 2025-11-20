@@ -141,7 +141,7 @@ jobs:
                     print(f"  Could not count features for {dataset_id}: {e}")
                     count_note = "Error counting features"
             else:
-                count_note = "Large file - not counted"
+                count_note = "Large file"
 
             # File exists, add to catalog
             catalog_entry = {
