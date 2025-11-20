@@ -103,7 +103,7 @@ jobs:
   collect-data:
     name: Collect Selected Data
     needs: check-status
-    if: github.event.inputs.mode == 'collect'
+    if: github.event.inputs.mode == 'collect-all' || github.event.inputs.mode == 'collect-selected'
     runs-on: ubuntu-latest
     timeout-minutes: 60
 
