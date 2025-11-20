@@ -1,0 +1,16 @@
+⚠️  No datasets selected
+Set COLLECT_<DATASET_ID>=true environment variables to select datasets
+
+Available datasets:
+  ✓ williams_treaty_communities    (enabled)
+  ✗ williams_treaty_boundaries     (enabled)
+  ✓ ontario_reserves               (enabled)
+  ✓ williams_treaty_reserves       (enabled)
+  ✗ provincial_parks               (disabled)
+  ✓ conservation_authorities       (enabled)
+  ✓ inaturalist                    (enabled)
+  ✓ ebird                          (enabled)
+  ✓ community_wellbeing            (enabled)
+  ✗ water_advisories               (disabled)
+  ✓ fire_perimeters                (enabled)
+  ✗ watersheds                     (disabled)

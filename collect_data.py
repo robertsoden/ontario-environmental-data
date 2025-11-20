@@ -56,6 +56,9 @@ async def collect_selected_data():
 
     selected_ids = get_selected_datasets()
 
+    # Check for --overwrite flag
+    overwrite = os.getenv("OVERWRITE", "false").lower() == "true"
+
     if not selected_ids:
         print("⚠️  No datasets selected")
         print("Set COLLECT_<DATASET_ID>=true environment variables to select datasets")
@@ -70,7 +73,11 @@ async def collect_selected_data():
     print("\n" + "=" * 80)
     print("DATA COLLECTION")
     print("=" * 80)
-    print(f"\n📦 Collecting {len(selected_ids)}/{len(get_enabled_datasets())} selected data sources\n")
+
+    if overwrite:
+        print(f"\n📦 Collecting {len(selected_ids)}/{len(get_enabled_datasets())} selected data sources (overwrite mode)\n")
+    else:
+        print(f"\n📦 Collecting {len(selected_ids)}/{len(get_enabled_datasets())} selected data sources (skip existing)\n")
 
     # Show checklist
     for dataset_id, dataset in DATASETS.items():
@@ -78,7 +85,8 @@ async def collect_selected_data():
             continue
         icon = "✅" if dataset_id in selected_ids else "⬜"
         name = dataset.name
-        print(f"  {icon} {name}")
+        exists = "📁" if dataset.output_path and dataset.output_path.exists() else ""
+        print(f"  {icon} {name} {exists}")
 
     print()
 
@@ -113,6 +121,31 @@ async def collect_selected_data():
                 }
             continue
 
+        # Check if file already exists and we're not in overwrite mode
+        if not overwrite and dataset.output_path and dataset.output_path.exists():
+            file_size = dataset.output_path.stat().st_size / (1024 * 1024)  # MB
+
+            # Try to get feature count from GeoJSON
+            count = 0
+            if dataset.output_path.suffix == ".geojson":
+                try:
+                    with open(dataset.output_path) as f:
+                        data = json.load(f)
+                        count = len(data.get("features", []))
+                except Exception:
+                    pass
+
+            print(f"\n⏭️  {dataset.name}: Skipping (already exists, {file_size:.1f} MB, {count} features)")
+            print(f"   File: {dataset.output_path}")
+            print(f"   Use OVERWRITE=true to re-collect")
+            results["sources"][dataset_id] = {
+                "status": "skipped",
+                "note": "File already exists",
+                "file": str(dataset.output_path),
+                "count": count
+            }
+            continue
+
         # Display section header
         print("\n" + "=" * 80)
         print(dataset.name.upper())
@@ -135,9 +168,12 @@ async def collect_selected_data():
     print("=" * 80)
 
     success_count = sum(1 for r in results["sources"].values() if r.get("status") == "success")
+    skipped_count = sum(1 for r in results["sources"].values() if r.get("status") == "skipped")
     failed_count = sum(1 for r in results["sources"].values() if r.get("status") == "error")
 
-    print(f"\n✅ Successful: {success_count}")
+    print(f"\n✅ Collected: {success_count}")
+    if skipped_count > 0:
+        print(f"⏭️  Skipped: {skipped_count} (already exist)")
     if failed_count > 0:
         print(f"❌ Failed: {failed_count}")
 

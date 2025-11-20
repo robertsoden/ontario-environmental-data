@@ -247,7 +247,8 @@ jobs:
 
         # Add datasets from collection report
         for dataset_id, info in report.get("sources", {}).items():
-            if info.get("status") == "success":
+            # Include both successfully collected and skipped (existing) datasets
+            if info.get("status") in ["success", "skipped", "static"]:
                 local_file = Path(info.get("file", ""))
                 if local_file.exists():
                     # Determine category from path
@@ -272,13 +273,24 @@ jobs:
                     size_bytes = local_file.stat().st_size
                     size_mb = round(size_bytes / 1024 / 1024, 2)
 
+                    # Get feature count (from report or by reading file)
+                    count = info.get("count", 0)
+                    if count == 0 and local_file.suffix == ".geojson":
+                        # Try to read feature count from GeoJSON
+                        try:
+                            with open(local_file) as f:
+                                data = json.load(f)
+                                count = len(data.get("features", []))
+                        except:
+                            pass
+
                     catalog["datasets"][dataset_id] = {
                         "id": dataset_id,
                         "url": s3_url,
                         "category": category,
                         "format": "geojson",
                         "size_mb": size_mb,
-                        "count": info.get("count", 0),
+                        "count": count,
                         "last_updated": report.get("timestamp", "")
                     }
 
