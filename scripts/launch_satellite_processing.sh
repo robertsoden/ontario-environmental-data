@@ -13,7 +13,7 @@ echo "=========================================="
 echo ""
 
 # Configuration
-INSTANCE_TYPE="t3.xlarge"
+INSTANCE_TYPE="t3.large"
 INSTANCE_NAME="ontario-satellite-processing"
 REGION="us-east-1"
 VOLUME_SIZE=500
