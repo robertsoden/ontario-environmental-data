@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import geopandas as gpd
 import pytest
 
-from ontario_data.exceptions import DataSourceError
+from ontario_data.sources.base import DataSourceError
 from ontario_data.sources.protected_areas import OntarioGeoHubClient
 
 
