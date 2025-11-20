@@ -126,11 +126,13 @@ def check_data_status():
                 modified = datetime.fromtimestamp(path.stat().st_mtime)
 
                 # Perform validation
-                validation_success, validation_errors, validation_warnings = validate_data_file(
-                    path,
-                    info["data_type"],
-                    info.get("min_records", 1),
-                    info.get("required_fields"),
+                validation_success, validation_errors, validation_warnings = (
+                    validate_data_file(
+                        path,
+                        info["data_type"],
+                        info.get("min_records", 1),
+                        info.get("required_fields"),
+                    )
                 )
 
                 file_info = {
@@ -181,8 +183,12 @@ def check_data_status():
                 print(f"  ✗ {name:30} {'MISSING':>10}")
 
     print("\n" + "=" * 80)
-    print(f"SUMMARY: {len(status['available'])} available, {len(status['missing'])} missing")
-    print(f"Validation: {len(status['validation_errors'])} errors, {len(status['validation_warnings'])} warnings")
+    print(
+        f"SUMMARY: {len(status['available'])} available, {len(status['missing'])} missing"
+    )
+    print(
+        f"Validation: {len(status['validation_errors'])} errors, {len(status['validation_warnings'])} warnings"
+    )
     print("=" * 80)
 
     # Detailed validation summary
