@@ -52,6 +52,11 @@ class DatasetDefinition:
     # Collection
     collect_fn: Optional[Callable] = None  # Async function to collect this dataset
 
+    # Static datasets (pre-processed, uploaded to S3)
+    is_static: bool = False  # True if this is a pre-processed static dataset
+    s3_url: Optional[str] = None  # S3 URL for static datasets
+    local_path: Optional[Path] = None  # Local path for static datasets (for upload)
+
     # Output
     output_path: Optional[Path] = None  # Where the collected data is saved
     output_format: str = "geojson"  # geojson, json, csv
@@ -538,11 +543,14 @@ DATASETS: Dict[str, DatasetDefinition] = {
         name="Provincial Parks",
         description="Ontario provincial parks boundaries",
         category="protected_areas",
+        is_static=True,
+        s3_url="https://ontario-environmental-data.s3.us-east-1.amazonaws.com/datasets/protected_areas/provincial_parks.geojson",
+        local_path=Path("data/processed/provincial_parks.geojson"),
         output_path=Path("data/processed/provincial_parks.geojson"),
         output_format="geojson",
         min_records=1,
         required_fields=["name"],
-        enabled=False,  # API is currently unreliable
+        enabled=True,  # Now available as static dataset
     ),
 
     "conservation_authorities": DatasetDefinition(
@@ -608,7 +616,10 @@ DATASETS: Dict[str, DatasetDefinition] = {
         name="Ontario Provincial Boundary",
         description="Ontario provincial boundary polygon",
         category="boundaries",
-        collect_fn=_collect_ontario_boundary,
+        is_static=True,
+        s3_url="https://ontario-environmental-data.s3.us-east-1.amazonaws.com/datasets/boundaries/ontario_boundary.geojson",
+        local_path=Path("data/processed/boundaries/ontario_boundary.geojson"),
+        collect_fn=_collect_ontario_boundary,  # Keep for local re-processing if needed
         output_path=Path("data/processed/boundaries/ontario_boundary.geojson"),
         output_format="geojson",
         min_records=1,
@@ -620,7 +631,10 @@ DATASETS: Dict[str, DatasetDefinition] = {
         name="Ontario Municipalities",
         description="Ontario municipal boundaries (Census Subdivisions)",
         category="boundaries",
-        collect_fn=_collect_ontario_municipalities,
+        is_static=True,
+        s3_url="https://ontario-environmental-data.s3.us-east-1.amazonaws.com/datasets/boundaries/ontario_municipalities.geojson",
+        local_path=Path("data/processed/boundaries/ontario_municipalities.geojson"),
+        collect_fn=_collect_ontario_municipalities,  # Keep for local re-processing if needed
         output_path=Path("data/processed/boundaries/ontario_municipalities.geojson"),
         output_format="geojson",
         min_records=1,
@@ -632,7 +646,10 @@ DATASETS: Dict[str, DatasetDefinition] = {
         name="Watersheds",
         description="Ontario watershed boundaries",
         category="environmental",
-        collect_fn=_collect_watersheds,
+        is_static=True,
+        s3_url="https://ontario-environmental-data.s3.us-east-1.amazonaws.com/datasets/environmental/watersheds.geojson",
+        local_path=Path("data/processed/watersheds.geojson"),
+        collect_fn=_collect_watersheds,  # Keep for local re-processing if needed
         output_path=Path("data/processed/watersheds.geojson"),
         output_format="geojson",
         min_records=1,
