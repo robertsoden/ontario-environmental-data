@@ -41,7 +41,7 @@ DATA_FILES = {
         "type": "boundaries",
         "data_type": "geojson",
         "min_records": 1,
-        "required_fields": ["first_nation"],
+        "required_fields": ["ENAME"],  # English name of the treaty
     },
     "fire_perimeters": {
         "path": OUTPUT_DIR / "fire_perimeters_1976_2024.geojson",
