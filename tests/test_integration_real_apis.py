@@ -180,9 +180,7 @@ class TestDataSourceAvailability:
         critical_sources = ["ontario_geohub", "williams_treaty"]
 
         failed_critical = [
-            source
-            for source in critical_sources
-            if not results[source]["accessible"]
+            source for source in critical_sources if not results[source]["accessible"]
         ]
 
         if failed_critical:
@@ -194,9 +192,7 @@ class TestDataSourceAvailability:
         # Warn about non-critical failures
         non_critical = ["inaturalist"]
         failed_non_critical = [
-            source
-            for source in non_critical
-            if not results[source]["accessible"]
+            source for source in non_critical if not results[source]["accessible"]
         ]
 
         if failed_non_critical:

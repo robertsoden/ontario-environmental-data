@@ -45,7 +45,9 @@ def validate_file_exists(file_path: Path, min_size_bytes: int = 100) -> None:
         )
 
 
-def validate_json_file(file_path: Path, required_keys: Optional[List[str]] = None) -> Dict[str, Any]:
+def validate_json_file(
+    file_path: Path, required_keys: Optional[List[str]] = None
+) -> Dict[str, Any]:
     """
     Validate that a file is valid JSON and contains required keys.
 
@@ -137,9 +139,7 @@ def validate_geojson_file(
             if geom is None or geom.is_empty:
                 invalid_geoms.append(f"Feature {idx}: empty geometry")
             elif not geom.is_valid:
-                invalid_geoms.append(
-                    f"Feature {idx}: {explain_validity(geom)}"
-                )
+                invalid_geoms.append(f"Feature {idx}: {explain_validity(geom)}")
 
         if invalid_geoms:
             # If more than 10% of geometries are invalid, fail
@@ -212,7 +212,9 @@ def validate_json_observations(
     return observations, warnings
 
 
-def validate_collection_results(results: Dict[str, Any]) -> Tuple[bool, List[str], List[str]]:
+def validate_collection_results(
+    results: Dict[str, Any],
+) -> Tuple[bool, List[str], List[str]]:
     """
     Validate data collection results dictionary.
 

@@ -418,7 +418,9 @@ async def collect_all_data():
     print("VALIDATING COLLECTED DATA")
     print("=" * 80)
 
-    validation_success, validation_errors, validation_warnings = validate_collection_results(results)
+    validation_success, validation_errors, validation_warnings = (
+        validate_collection_results(results)
+    )
 
     # Validate individual files
     file_validation_errors = []
@@ -453,8 +455,12 @@ async def collect_all_data():
                     file_path, data_type, min_records, required_fields
                 )
                 if not file_success:
-                    file_validation_errors.extend([f"{source_name}: {e}" for e in file_errors])
-                file_validation_warnings.extend([f"{source_name}: {w}" for w in file_warnings])
+                    file_validation_errors.extend(
+                        [f"{source_name}: {e}" for e in file_errors]
+                    )
+                file_validation_warnings.extend(
+                    [f"{source_name}: {w}" for w in file_warnings]
+                )
             except Exception as e:
                 file_validation_errors.append(f"{source_name}: Validation failed: {e}")
 
