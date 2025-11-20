@@ -14,7 +14,6 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import geopandas as gpd
 import pandas as pd
-from shapely.geometry import shape
 from shapely.validation import explain_validity
 
 
@@ -67,7 +66,7 @@ def validate_json_file(
         with open(file_path) as f:
             data = json.load(f)
     except json.JSONDecodeError as e:
-        raise ValidationError(f"Invalid JSON in {file_path}: {e}")
+        raise ValidationError(f"Invalid JSON in {file_path}: {e}") from e
 
     if required_keys:
         missing_keys = set(required_keys) - set(data.keys())
@@ -108,7 +107,7 @@ def validate_geojson_file(
     try:
         gdf = gpd.read_file(file_path)
     except Exception as e:
-        raise ValidationError(f"Failed to read GeoJSON {file_path}: {e}")
+        raise ValidationError(f"Failed to read GeoJSON {file_path}: {e}") from e
 
     # Check feature count
     if len(gdf) < min_features:
