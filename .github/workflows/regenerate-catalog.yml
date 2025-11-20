@@ -1,0 +1,222 @@
+name: Regenerate Catalog from S3
+
+# This workflow regenerates the catalog.json by querying what's in S3
+# Use this when you've manually uploaded new data to S3 and want to update the catalog
+
+on:
+  workflow_dispatch:
+
+env:
+  S3_BUCKET: ontario-environmental-data
+  S3_REGION: us-east-1
+  S3_BASE_PATH: datasets
+
+jobs:
+  regenerate-catalog:
+    name: Regenerate Catalog
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.11"
+
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e .
+
+    - name: Generate catalog from S3
+      env:
+        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        AWS_DEFAULT_REGION: ${{ env.S3_REGION }}
+      run: |
+        echo "📋 Generating data catalog from S3..."
+
+        # Install AWS CLI
+        pip install awscli
+
+        # Generate catalog by querying S3 directly
+        python3 << 'CATALOG_PY'
+        import json
+        import subprocess
+        from pathlib import Path
+        from datetime import datetime
+
+        # Import dataset registry to get metadata
+        import sys
+        sys.path.insert(0, '.')
+        from ontario_data.datasets import DATASETS
+
+        # Base S3 URL
+        bucket = "${{ env.S3_BUCKET }}"
+        base_url = f"https://{bucket}.s3.${{ env.S3_REGION }}.amazonaws.com"
+
+        # Build catalog
+        catalog = {
+            "metadata": {
+                "generated": datetime.utcnow().isoformat() + "Z",
+                "source": "Ontario Environmental Data Registry",
+                "storage": {
+                    "provider": "AWS S3",
+                    "bucket": bucket,
+                    "region": "${{ env.S3_REGION }}",
+                    "base_url": base_url
+                }
+            },
+            "datasets": {}
+        }
+
+        # Get list of all GeoJSON files in S3
+        print("Querying S3 for datasets...")
+        result = subprocess.run(
+            ["aws", "s3", "ls", f"s3://{bucket}/${{ env.S3_BASE_PATH }}/", "--recursive"],
+            capture_output=True,
+            text=True
+        )
+
+        if result.returncode != 0:
+            print(f"Error listing S3 files: {result.stderr}")
+            exit(1)
+
+        # Parse S3 listing
+        s3_files = {}
+        for line in result.stdout.strip().split('\n'):
+            if not line or not line.endswith('.geojson'):
+                continue
+
+            parts = line.split()
+            if len(parts) < 4:
+                continue
+
+            # Format: date time size path
+            size_bytes = int(parts[2])
+            s3_path = parts[3]
+
+            # Extract category and filename from path
+            # Path format: datasets/category/filename.geojson
+            path_parts = s3_path.split('/')
+            if len(path_parts) >= 3 and path_parts[0] == "${{ env.S3_BASE_PATH }}":
+                category = path_parts[1]
+                filename = path_parts[2]
+
+                s3_files[filename] = {
+                    "category": category,
+                    "size_bytes": size_bytes,
+                    "s3_path": s3_path
+                }
+
+        print(f"Found {len(s3_files)} files in S3")
+
+        # Match S3 files to dataset registry
+        for dataset_id, dataset in DATASETS.items():
+            if not dataset.enabled:
+                continue
+
+            if not dataset.output_path:
+                continue
+
+            filename = dataset.output_path.name
+
+            if filename in s3_files:
+                file_info = s3_files[filename]
+                category = file_info["category"]
+                size_mb = round(file_info["size_bytes"] / 1024 / 1024, 2)
+
+                # Try to download and get feature count (only for small files)
+                count = 0
+                if size_mb < 50:  # Only download files smaller than 50MB
+                    try:
+                        # Download file temporarily
+                        temp_file = Path(f"/tmp/{filename}")
+                        subprocess.run(
+                            ["aws", "s3", "cp", f"s3://{bucket}/{file_info['s3_path']}", str(temp_file)],
+                            check=True,
+                            capture_output=True
+                        )
+
+                        # Read feature count
+                        with open(temp_file) as f:
+                            data = json.load(f)
+                            count = len(data.get("features", []))
+
+                        temp_file.unlink()
+                    except Exception as e:
+                        print(f"Could not get feature count for {filename}: {e}")
+
+                s3_url = f"{base_url}/${{ env.S3_BASE_PATH }}/{category}/{filename}"
+
+                catalog["datasets"][dataset_id] = {
+                    "id": dataset_id,
+                    "url": s3_url,
+                    "category": category,
+                    "format": "geojson",
+                    "size_mb": size_mb,
+                    "count": count,
+                    "last_updated": datetime.utcnow().isoformat() + "Z"
+                }
+
+        # Write catalog
+        catalog_path = Path("data/catalog.json")
+        catalog_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(catalog_path, "w") as f:
+            json.dump(catalog, f, indent=2)
+
+        print(f"✅ Generated catalog with {len(catalog['datasets'])} datasets")
+        print("\nDatasets in catalog:")
+        for dataset_id in sorted(catalog["datasets"].keys()):
+            info = catalog["datasets"][dataset_id]
+            print(f"  - {dataset_id}: {info['count']} features, {info['size_mb']} MB")
+        CATALOG_PY
+
+    - name: Upload catalog to S3
+      env:
+        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        AWS_DEFAULT_REGION: ${{ env.S3_REGION }}
+      run: |
+        echo "☁️  Uploading catalog to S3..."
+        aws s3 cp data/catalog.json \
+          s3://${{ env.S3_BUCKET }}/catalog.json \
+          --cache-control "public, max-age=300" \
+          --content-type "application/json"
+
+        echo "✅ Catalog uploaded to S3"
+
+    - name: Trigger GitHub Pages update
+      run: |
+        echo "🔄 Triggering GitHub Pages publish workflow..."
+        gh workflow run "publish-from-s3.yml"
+      env:
+        GH_TOKEN: ${{ github.token }}
+
+    - name: Create summary
+      run: |
+        echo "## 📋 Catalog Regeneration Complete" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Catalog URL:** https://${{ env.S3_BUCKET }}.s3.${{ env.S3_REGION }}.amazonaws.com/catalog.json" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+
+        if [ -f "data/catalog.json" ]; then
+          echo "### Datasets" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          python3 << 'SUMMARY_PY'
+        import json
+        from pathlib import Path
+
+        catalog_path = Path("data/catalog.json")
+        if catalog_path.exists():
+            with open(catalog_path) as f:
+                catalog = json.load(f)
+
+            print(f"**Total datasets:** {len(catalog['datasets'])}")
+            print("")
+            for dataset_id, info in sorted(catalog["datasets"].items()):
+                print(f"- **{dataset_id}**: {info['count']} features ({info['size_mb']} MB)")
+        SUMMARY_PY
+        fi

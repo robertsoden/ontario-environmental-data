@@ -103,6 +103,31 @@ async def collect_selected_data():
             print(f"⚠️  Unknown dataset: {dataset_id}")
             continue
 
+        # Check if this is a static dataset with an existing file
+        # Static datasets should not be re-collected even if they have a collect_fn
+        if dataset.is_static and dataset.output_path and dataset.output_path.exists():
+            file_size = dataset.output_path.stat().st_size / (1024 * 1024)  # MB
+
+            # Try to get feature count from GeoJSON
+            count = 0
+            if dataset.output_path.suffix == ".geojson":
+                try:
+                    with open(dataset.output_path) as f:
+                        data = json.load(f)
+                        count = len(data.get("features", []))
+                except Exception:
+                    pass
+
+            print(f"\n📦 {dataset.name}: Static dataset ({file_size:.1f} MB, {count} features)")
+            print(f"   File: {dataset.output_path}")
+            results["sources"][dataset_id] = {
+                "status": "static",
+                "note": "Static pre-processed dataset",
+                "file": str(dataset.output_path),
+                "count": count
+            }
+            continue
+
         # Check if collection function exists
         if not dataset.collect_fn:
             # Check if this is a static file that already exists

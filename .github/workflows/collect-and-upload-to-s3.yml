@@ -209,22 +209,19 @@ jobs:
         AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         AWS_DEFAULT_REGION: ${{ env.S3_REGION }}
       run: |
-        echo "📋 Generating data catalog..."
+        echo "📋 Generating data catalog from S3..."
 
-        # Generate catalog with S3 URLs
+        # Generate catalog by querying S3 directly
         python3 << 'CATALOG_PY'
         import json
+        import subprocess
         from pathlib import Path
         from datetime import datetime
 
-        # Read collection report
-        report_path = Path("data/processed/collection_report.json")
-        if not report_path.exists():
-            print("No collection report found")
-            exit(1)
-
-        with open(report_path) as f:
-            report = json.load(f)
+        # Import dataset registry to get metadata
+        import sys
+        sys.path.insert(0, '.')
+        from ontario_data.datasets import DATASETS
 
         # Base S3 URL
         bucket = "${{ env.S3_BUCKET }}"
@@ -245,57 +242,98 @@ jobs:
             "datasets": {}
         }
 
-        # Add datasets from collection report
-        for dataset_id, info in report.get("sources", {}).items():
-            # Include both successfully collected and skipped (existing) datasets
-            if info.get("status") in ["success", "skipped", "static"]:
-                local_file = Path(info.get("file", ""))
-                if local_file.exists():
-                    # Determine category from path
-                    parts = local_file.parts
-                    if "boundaries" in parts:
-                        category = "boundaries"
-                    elif "communities" in parts:
-                        category = "communities"
-                    elif "cwb" in parts:
-                        category = "community"
-                    elif "protected_areas" in parts:
-                        category = "protected_areas"
-                    elif "biodiversity" in parts:
-                        category = "biodiversity"
-                    else:
-                        category = "environmental"
+        # Get list of all GeoJSON files in S3
+        print("Querying S3 for datasets...")
+        result = subprocess.run(
+            ["aws", "s3", "ls", f"s3://{bucket}/${{ env.S3_BASE_PATH }}/", "--recursive"],
+            capture_output=True,
+            text=True
+        )
 
-                    filename = local_file.name
-                    s3_url = f"{base_url}/${{ env.S3_BASE_PATH }}/{category}/{filename}"
+        if result.returncode != 0:
+            print(f"Error listing S3 files: {result.stderr}")
+            exit(1)
 
-                    # Get file size
-                    size_bytes = local_file.stat().st_size
-                    size_mb = round(size_bytes / 1024 / 1024, 2)
+        # Parse S3 listing
+        s3_files = {}
+        for line in result.stdout.strip().split('\n'):
+            if not line or not line.endswith('.geojson'):
+                continue
 
-                    # Get feature count (from report or by reading file)
-                    count = info.get("count", 0)
-                    if count == 0 and local_file.suffix == ".geojson":
-                        # Try to read feature count from GeoJSON
-                        try:
-                            with open(local_file) as f:
-                                data = json.load(f)
-                                count = len(data.get("features", []))
-                        except:
-                            pass
+            parts = line.split()
+            if len(parts) < 4:
+                continue
 
-                    catalog["datasets"][dataset_id] = {
-                        "id": dataset_id,
-                        "url": s3_url,
-                        "category": category,
-                        "format": "geojson",
-                        "size_mb": size_mb,
-                        "count": count,
-                        "last_updated": report.get("timestamp", "")
-                    }
+            # Format: date time size path
+            size_bytes = int(parts[2])
+            s3_path = parts[3]
+
+            # Extract category and filename from path
+            # Path format: datasets/category/filename.geojson
+            path_parts = s3_path.split('/')
+            if len(path_parts) >= 3 and path_parts[0] == "${{ env.S3_BASE_PATH }}":
+                category = path_parts[1]
+                filename = path_parts[2]
+
+                s3_files[filename] = {
+                    "category": category,
+                    "size_bytes": size_bytes,
+                    "s3_path": s3_path
+                }
+
+        print(f"Found {len(s3_files)} files in S3")
+
+        # Match S3 files to dataset registry
+        for dataset_id, dataset in DATASETS.items():
+            if not dataset.enabled:
+                continue
+
+            if not dataset.output_path:
+                continue
+
+            filename = dataset.output_path.name
+
+            if filename in s3_files:
+                file_info = s3_files[filename]
+                category = file_info["category"]
+                size_mb = round(file_info["size_bytes"] / 1024 / 1024, 2)
+
+                # Try to download and get feature count (only for small files)
+                count = 0
+                if size_mb < 50:  # Only download files smaller than 50MB
+                    try:
+                        # Download file temporarily
+                        temp_file = Path(f"/tmp/{filename}")
+                        subprocess.run(
+                            ["aws", "s3", "cp", f"s3://{bucket}/{file_info['s3_path']}", str(temp_file)],
+                            check=True,
+                            capture_output=True
+                        )
+
+                        # Read feature count
+                        with open(temp_file) as f:
+                            data = json.load(f)
+                            count = len(data.get("features", []))
+
+                        temp_file.unlink()
+                    except Exception as e:
+                        print(f"Could not get feature count for {filename}: {e}")
+
+                s3_url = f"{base_url}/${{ env.S3_BASE_PATH }}/{category}/{filename}"
+
+                catalog["datasets"][dataset_id] = {
+                    "id": dataset_id,
+                    "url": s3_url,
+                    "category": category,
+                    "format": "geojson",
+                    "size_mb": size_mb,
+                    "count": count,
+                    "last_updated": datetime.utcnow().isoformat() + "Z"
+                }
 
         # Write catalog
         catalog_path = Path("data/catalog.json")
+        catalog_path.parent.mkdir(parents=True, exist_ok=True)
         with open(catalog_path, "w") as f:
             json.dump(catalog, f, indent=2)
 
