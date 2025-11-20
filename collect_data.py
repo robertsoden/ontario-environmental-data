@@ -162,7 +162,7 @@ async def collect_selected_data():
 
             print(f"\n⏭️  {dataset.name}: Skipping (already exists, {file_size:.1f} MB, {count} features)")
             print(f"   File: {dataset.output_path}")
-            print(f"   Use OVERWRITE=true to re-collect")
+            print("   Use OVERWRITE=true to re-collect")
             results["sources"][dataset_id] = {
                 "status": "skipped",
                 "note": "File already exists",

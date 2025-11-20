@@ -224,7 +224,7 @@ async def _collect_inaturalist() -> Dict[str, Any]:
     with open(output_file, "w") as f:
         json.dump(observations, f, indent=2)
 
-    species = set(obs.get("scientific_name") for obs in observations)
+    species = {obs.get("scientific_name") for obs in observations}
 
     print(f"✅ Saved {len(observations)} observations")
     print(f"   Unique species: {len(species)}")
@@ -260,7 +260,7 @@ async def _collect_ebird() -> Dict[str, Any]:
     with open(output_file, "w") as f:
         json.dump(observations, f, indent=2)
 
-    species = set(obs.get("species_code") for obs in observations)
+    species = {obs.get("species_code") for obs in observations}
 
     print(f"✅ Saved {len(observations)} bird observations")
     print(f"   Unique species: {len(species)}")
@@ -373,7 +373,7 @@ async def _collect_ontario_boundary() -> Dict[str, Any]:
     output_file.parent.mkdir(parents=True, exist_ok=True)
     ontario_gdf.to_file(output_file, driver="GeoJSON")
 
-    print(f"✅ Saved Ontario provincial boundary")
+    print("✅ Saved Ontario provincial boundary")
     print(f"   File: {output_file}")
 
     return {
@@ -688,4 +688,4 @@ def get_enabled_datasets() -> List[DatasetDefinition]:
 
 def get_all_categories() -> List[str]:
     """Get all unique categories."""
-    return sorted(set(ds.category for ds in DATASETS.values()))
+    return sorted({ds.category for ds in DATASETS.values()})

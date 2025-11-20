@@ -4,12 +4,11 @@ This module provides harvesters for discovering and ingesting datasets from
 multiple open data portals across Ontario.
 """
 
-import asyncio
 import json
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Dict, List, Optional
 
 import aiohttp
 

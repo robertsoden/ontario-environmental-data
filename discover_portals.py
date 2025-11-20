@@ -14,7 +14,6 @@ from ontario_data.sources.portal_harvester import (
     harvest_all_portals,
 )
 
-
 # Portal configurations
 PORTALS = [
     # Ontario GeoHub (ArcGIS)
@@ -68,7 +67,7 @@ async def main():
     print()
     print(f"{'TOTAL':30s} {total:>6,} datasets")
     print()
-    print(f"✅ Discovery complete!")
+    print("✅ Discovery complete!")
     print(f"   Results saved to: {output_file}")
     print()
     print("Next steps:")

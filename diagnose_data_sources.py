@@ -186,7 +186,7 @@ async def test_satellite():
     try:
         from ontario_data import SatelliteDataClient
 
-        client = SatelliteDataClient()
+        SatelliteDataClient()
         print(f"  {GREEN}✅ SUCCESS{RESET}: Client initialized")
         return {"status": "success", "count": 1, "error": None}
 
