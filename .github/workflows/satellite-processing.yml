@@ -165,25 +165,25 @@ jobs:
           echo "Uploading to Azure Blob Storage..."
           pip install azure-storage-blob
 
-          python - <<'EOFPYTHON'
-import os
-from pathlib import Path
-from azure.storage.blob import BlobServiceClient
+          python - << 'AZUREPY'
+          import os
+          from pathlib import Path
+          from azure.storage.blob import BlobServiceClient
 
-conn_str = os.environ['AZURE_STORAGE_CONNECTION_STRING']
-blob_service = BlobServiceClient.from_connection_string(conn_str)
-container = blob_service.get_container_client("ontario-satellite-data")
+          conn_str = os.environ['AZURE_STORAGE_CONNECTION_STRING']
+          blob_service = BlobServiceClient.from_connection_string(conn_str)
+          container = blob_service.get_container_client("ontario-satellite-data")
 
-for file_path in Path("data/tiles").rglob("*"):
-    if file_path.is_file():
-        blob_name = str(file_path.relative_to("data/tiles"))
-        with open(file_path, "rb") as data:
-            blob_client = container.get_blob_client(blob_name)
-            blob_client.upload_blob(data, overwrite=True)
-            print(f"Uploaded: {blob_name}")
+          for file_path in Path("data/tiles").rglob("*"):
+              if file_path.is_file():
+                  blob_name = str(file_path.relative_to("data/tiles"))
+                  with open(file_path, "rb") as data:
+                      blob_client = container.get_blob_client(blob_name)
+                      blob_client.upload_blob(data, overwrite=True)
+                      print(f"Uploaded: {blob_name}")
 
-print("✓ Uploaded to Azure")
-EOFPYTHON
+          print("✓ Uploaded to Azure")
+          AZUREPY
 
         else
           echo "⚠ No cloud storage credentials configured"
