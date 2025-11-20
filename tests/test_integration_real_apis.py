@@ -14,8 +14,8 @@ Skip with: pytest tests/ -v -m "not integration"
 """
 
 import os
+
 import pytest
-import asyncio
 
 from ontario_data import (
     CWFISClient,
