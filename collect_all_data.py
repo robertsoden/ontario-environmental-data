@@ -505,9 +505,7 @@ async def collect_all_data():
     successful = sum(
         1 for s in results["sources"].values() if s.get("status") == "success"
     )
-    failed = sum(
-        1 for s in results["sources"].values() if s.get("status") == "error"
-    )
+    failed = sum(1 for s in results["sources"].values() if s.get("status") == "error")
     total = len(results["sources"])
     print(f"   • Successfully collected: {successful}/{total} data sources")
     print(f"   • Failed: {failed}/{total} data sources")
