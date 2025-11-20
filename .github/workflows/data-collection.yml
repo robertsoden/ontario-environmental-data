@@ -15,7 +15,7 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: '🎯 Mode'
+        description: 'Mode: status-only | collect-all | collect-selected'
         required: true
         type: choice
         options:
@@ -23,38 +23,11 @@ on:
           - collect-all
           - collect-selected
         default: status-only
-      williams_treaty_communities:
-        description: '☑️ Williams Treaty Communities'
-        type: boolean
-        default: false
-      ontario_reserves:
-        description: '☑️ Ontario Reserves'
-        type: boolean
-        default: false
-      williams_treaty_reserves:
-        description: '☑️ Williams Treaty Reserves'
-        type: boolean
-        default: false
-      conservation_authorities:
-        description: '☑️ Conservation Authorities'
-        type: boolean
-        default: false
-      inaturalist:
-        description: '☑️ iNaturalist'
-        type: boolean
-        default: false
-      ebird:
-        description: '☑️ eBird'
-        type: boolean
-        default: false
-      community_wellbeing:
-        description: '☑️ Community Well-Being'
-        type: boolean
-        default: false
-      fire_perimeters:
-        description: '☑️ Fire Perimeters'
-        type: boolean
-        default: false
+      datasets:
+        description: 'Dataset IDs to collect (one per line or comma-separated). Run "status-only" first to see available datasets.'
+        type: string
+        required: false
+        default: ''
 
 jobs:
   check-status:
@@ -77,6 +50,40 @@ jobs:
         python -m pip install --upgrade pip
         pip install -e ".[dev]"
 
+    - name: List available datasets from registry
+      run: |
+        echo "## 📋 Available Datasets" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "The following datasets are available in the registry:" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+
+        python3 << 'PYTHON_EOF'
+        from ontario_data.datasets import get_enabled_datasets, DATASETS
+        import os
+
+        print("### Enabled Datasets")
+        print("")
+        for dataset in get_enabled_datasets():
+            print(f"- `{dataset.id}` - {dataset.name}")
+
+        print("")
+        print("### Disabled Datasets")
+        print("")
+        for dataset_id, dataset in DATASETS.items():
+            if not dataset.enabled:
+                print(f"- ~~`{dataset_id}`~~ - {dataset.name} (disabled)")
+
+        # Also write to GITHUB_STEP_SUMMARY
+        with open(os.getenv('GITHUB_STEP_SUMMARY'), 'a') as f:
+            f.write("### Enabled Datasets\n\n")
+            for dataset in get_enabled_datasets():
+                f.write(f"- `{dataset.id}` - {dataset.name}\n")
+            f.write("\n### Disabled Datasets\n\n")
+            for dataset_id, dataset in DATASETS.items():
+                if not dataset.enabled:
+                    f.write(f"- ~~`{dataset_id}`~~ - {dataset.name} (disabled)\n")
+        PYTHON_EOF
+
     - name: Check existing data status
       id: check
       run: |
@@ -85,18 +92,10 @@ jobs:
         python check_data_status.py
         # Ignore exit code - missing data before collection is expected
 
-        echo "## 📊 Current Data Status (Before Collection)" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
-        echo "Status check completed before data collection." >> $GITHUB_STEP_SUMMARY
-        echo "Note: Missing data is expected at this stage." >> $GITHUB_STEP_SUMMARY
+        echo "## 📊 Current Data Status" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
-
-        if [ -f "data_status.json" ]; then
-          echo "### Existing Data Files" >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          cat data_status.json | python -m json.tool 2>/dev/null || cat data_status.json
-          echo '```' >> $GITHUB_STEP_SUMMARY
-        fi
+        echo "Status check completed. Missing data is expected before collection." >> $GITHUB_STEP_SUMMARY
 
         # Always succeed - this is just informational
         exit 0
@@ -185,17 +184,23 @@ jobs:
         PYTHON_EOF
 
         elif [ "${{ github.event.inputs.mode }}" == "collect-selected" ]; then
-          echo "Setting up to collect selected datasets from checkboxes"
+          echo "Setting up to collect selected datasets"
 
-          # Check each dataset checkbox and set env var if checked
-          [ "${{ github.event.inputs.williams_treaty_communities }}" == "true" ] && echo "COLLECT_WILLIAMS_TREATY_COMMUNITIES=true" >> $GITHUB_ENV && echo "  ✓ williams_treaty_communities"
-          [ "${{ github.event.inputs.ontario_reserves }}" == "true" ] && echo "COLLECT_ONTARIO_RESERVES=true" >> $GITHUB_ENV && echo "  ✓ ontario_reserves"
-          [ "${{ github.event.inputs.williams_treaty_reserves }}" == "true" ] && echo "COLLECT_WILLIAMS_TREATY_RESERVES=true" >> $GITHUB_ENV && echo "  ✓ williams_treaty_reserves"
-          [ "${{ github.event.inputs.conservation_authorities }}" == "true" ] && echo "COLLECT_CONSERVATION_AUTHORITIES=true" >> $GITHUB_ENV && echo "  ✓ conservation_authorities"
-          [ "${{ github.event.inputs.inaturalist }}" == "true" ] && echo "COLLECT_INATURALIST=true" >> $GITHUB_ENV && echo "  ✓ inaturalist"
-          [ "${{ github.event.inputs.ebird }}" == "true" ] && echo "COLLECT_EBIRD=true" >> $GITHUB_ENV && echo "  ✓ ebird"
-          [ "${{ github.event.inputs.community_wellbeing }}" == "true" ] && echo "COLLECT_COMMUNITY_WELLBEING=true" >> $GITHUB_ENV && echo "  ✓ community_wellbeing"
-          [ "${{ github.event.inputs.fire_perimeters }}" == "true" ] && echo "COLLECT_FIRE_PERIMETERS=true" >> $GITHUB_ENV && echo "  ✓ fire_perimeters"
+          # Parse newline or comma-separated list
+          datasets_input="${{ github.event.inputs.datasets }}"
+
+          # Replace newlines with spaces and commas with spaces
+          datasets_input=$(echo "$datasets_input" | tr '\n,' ' ')
+
+          # Loop through each dataset ID
+          for dataset_id in $datasets_input; do
+            dataset_id=$(echo "$dataset_id" | xargs)  # trim whitespace
+            if [ ! -z "$dataset_id" ]; then
+              env_var="COLLECT_${dataset_id^^}"
+              echo "${env_var}=true" >> $GITHUB_ENV
+              echo "  ✓ $dataset_id"
+            fi
+          done
         fi
 
     - name: Run data collection
