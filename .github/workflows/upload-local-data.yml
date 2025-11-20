@@ -1,0 +1,71 @@
+name: Upload Local Data
+
+# This workflow extracts data from a temporary branch and uploads it as an artifact
+#
+# Usage:
+#   1. Run ./upload_local_data.sh locally to push data to a temporary branch
+#   2. Run this workflow, providing the branch name
+#   3. The workflow will extract the data and upload as an artifact
+
+on:
+  workflow_dispatch:
+    inputs:
+      data_branch:
+        description: 'Branch name containing data (created by upload_local_data.sh)'
+        required: true
+        type: string
+
+jobs:
+  upload:
+    name: Extract and Upload Data
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        ref: ${{ github.event.inputs.data_branch }}
+
+    - name: Check for data directory
+      run: |
+        if [ ! -d "data" ]; then
+          echo "❌ Error: data directory not found in branch ${{ github.event.inputs.data_branch }}"
+          exit 1
+        fi
+
+        echo "✅ Found data directory in branch ${{ github.event.inputs.data_branch }}"
+        echo ""
+        echo "Data files:"
+        find data -type f | head -30
+
+    - name: Upload data as artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: ontario-data-${{ github.run_number }}
+        path: |
+          data/processed/**/*.geojson
+          data/processed/**/*.json
+          data/processed/**/*.csv
+          data/raw/**/*.shp
+          data/raw/**/*.shx
+          data/raw/**/*.dbf
+          data/raw/**/*.prj
+          data/raw/**/*.cpg
+          data/raw/**/*.csv
+          data_status.json
+        retention-days: 30
+        if-no-files-found: error
+
+    - name: Summary
+      run: |
+        echo "## ✅ Local Data Uploaded" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "Data from branch \`${{ github.event.inputs.data_branch }}\` has been uploaded as artifact:" >> $GITHUB_STEP_SUMMARY
+        echo "- **Artifact name**: ontario-data-${{ github.run_number }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Retention**: 30 days" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "This artifact can now be used by Collection and Publish workflows." >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "You can now delete the temporary branch:" >> $GITHUB_STEP_SUMMARY
+        echo '```' >> $GITHUB_STEP_SUMMARY
+        echo "git push origin --delete ${{ github.event.inputs.data_branch }}" >> $GITHUB_STEP_SUMMARY
+        echo '```' >> $GITHUB_STEP_SUMMARY
