@@ -263,7 +263,7 @@ jobs:
                 print(f"Skipping dataset without s3_url or output_path: {dataset_id}")
                 continue
 
-            # Verify file exists in S3
+            # Verify file exists in S3 and get size
             check_result = subprocess.run(
                 ["aws", "s3", "ls", f"s3://{bucket}/{s3_path}"],
                 capture_output=True,
@@ -274,12 +274,45 @@ jobs:
                 print(f"⚠️  Dataset {dataset_id} not found in S3: s3://{bucket}/{s3_path}")
                 continue
 
+            # Parse file size from ls output
+            size_bytes = 0
+            if check_result.stdout.strip():
+                parts = check_result.stdout.strip().split()
+                if len(parts) >= 3:
+                    size_bytes = int(parts[2])
+
+            size_mb = round(size_bytes / 1024 / 1024, 2)
+
+            # Try to download and count features (only for reasonably-sized files)
+            count = 0
+            if size_mb < 100:  # Only download files smaller than 100MB
+                try:
+                    temp_file = Path(f"/tmp/{dataset_id}.{dataset.output_format}")
+                    subprocess.run(
+                        ["aws", "s3", "cp", f"s3://{bucket}/{s3_path}", str(temp_file)],
+                        check=True,
+                        capture_output=True
+                    )
+
+                    # Read feature count for GeoJSON/JSON files
+                    if dataset.output_format in ["geojson", "json"]:
+                        with open(temp_file) as f:
+                            data = json.load(f)
+                            count = len(data.get("features", []))
+
+                    temp_file.unlink()
+                    print(f"  Counted {count} features")
+                except Exception as e:
+                    print(f"  Could not count features for {dataset_id}: {e}")
+
             # File exists, add to catalog
             catalog["datasets"][dataset_id] = {
                 "id": dataset_id,
                 "url": s3_url,
                 "category": dataset.category,
                 "format": dataset.output_format,
+                "size_mb": size_mb,
+                "count": count,
                 "last_updated": datetime.utcnow().isoformat() + "Z"
             }
             print(f"✅ Added dataset: {dataset_id} -> {s3_url}")
