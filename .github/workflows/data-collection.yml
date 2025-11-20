@@ -146,40 +146,43 @@ jobs:
           echo "✅ Census boundaries already exist"
         fi
 
+    - name: Set environment variables for collection
+      run: |
+        echo "Mode: ${{ github.event.inputs.mode }}"
+
+        if [ "${{ github.event.inputs.mode }}" == "collect-all" ]; then
+          echo "Setting up to collect ALL enabled datasets from registry"
+          python3 << 'PYTHON_EOF'
+        import os
+        from ontario_data.datasets import get_enabled_datasets
+
+        # Write env vars to GITHUB_ENV
+        env_file = os.getenv('GITHUB_ENV')
+        with open(env_file, 'a') as f:
+            for dataset in get_enabled_datasets():
+                env_var = f'COLLECT_{dataset.id.upper()}'
+                f.write(f'{env_var}=true\n')
+                print(f'  ✓ {env_var}=true')
+        PYTHON_EOF
+
+        elif [ "${{ github.event.inputs.mode }}" == "collect-selected" ]; then
+          echo "Setting up to collect selected datasets: ${{ github.event.inputs.datasets }}"
+          IFS=',' read -ra DATASETS <<< "${{ github.event.inputs.datasets }}"
+          for dataset_id in "${DATASETS[@]}"; do
+            dataset_id=$(echo "$dataset_id" | xargs)
+            if [ ! -z "$dataset_id" ]; then
+              env_var="COLLECT_${dataset_id^^}"
+              echo "${env_var}=true" >> $GITHUB_ENV
+              echo "  ✓ ${env_var}=true"
+            fi
+          done
+        fi
+
     - name: Run data collection
       run: |
         echo "=========================================="
         echo "RUNNING DATA COLLECTION"
         echo "=========================================="
-        echo ""
-        echo "Mode: ${{ github.event.inputs.mode }}"
-
-        if [ "${{ github.event.inputs.mode }}" == "collect-all" ]; then
-          echo "Collecting ALL enabled datasets from registry"
-          # Set all enabled datasets to true
-          python3 -c "
-from ontario_data.datasets import get_enabled_datasets
-import os
-for dataset in get_enabled_datasets():
-    env_var = f'COLLECT_{dataset.id.upper()}'
-    print(f'export {env_var}=true')
-" > /tmp/env_vars.sh
-          source /tmp/env_vars.sh
-
-        elif [ "${{ github.event.inputs.mode }}" == "collect-selected" ]; then
-          echo "Collecting selected datasets: ${{ github.event.inputs.datasets }}"
-          # Parse comma-separated list and set env vars
-          IFS=',' read -ra DATASETS <<< "${{ github.event.inputs.datasets }}"
-          for dataset_id in "${DATASETS[@]}"; do
-            dataset_id=$(echo "$dataset_id" | xargs)  # trim whitespace
-            if [ ! -z "$dataset_id" ]; then
-              env_var="COLLECT_${dataset_id^^}"
-              export "$env_var=true"
-              echo "  - $dataset_id ($env_var=true)"
-            fi
-          done
-        fi
-
         python3 collect_data.py
       env:
         EBIRD_API_KEY: ${{ secrets.EBIRD_API_KEY }}
