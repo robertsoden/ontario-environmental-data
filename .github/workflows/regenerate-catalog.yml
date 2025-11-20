@@ -118,7 +118,8 @@ jobs:
             size_mb = round(size_bytes / 1024 / 1024, 2)
 
             # Try to download and count features (only for reasonably-sized files)
-            count = 0
+            count = None
+            count_note = None
             if size_mb < 100:  # Only download files smaller than 100MB
                 try:
                     temp_file = Path(f"/tmp/{dataset_id}.{dataset.output_format}")
@@ -138,17 +139,27 @@ jobs:
                     print(f"  Counted {count} features")
                 except Exception as e:
                     print(f"  Could not count features for {dataset_id}: {e}")
+                    count_note = "Error counting features"
+            else:
+                count_note = "Large file - not counted"
 
             # File exists, add to catalog
-            catalog["datasets"][dataset_id] = {
+            catalog_entry = {
                 "id": dataset_id,
                 "url": s3_url,
                 "category": dataset.category,
                 "format": dataset.output_format,
                 "size_mb": size_mb,
-                "count": count,
                 "last_updated": datetime.utcnow().isoformat() + "Z"
             }
+
+            # Add count if available, otherwise add note
+            if count is not None:
+                catalog_entry["count"] = count
+            elif count_note:
+                catalog_entry["count_note"] = count_note
+
+            catalog["datasets"][dataset_id] = catalog_entry
             print(f"✅ Added dataset: {dataset_id} -> {s3_url}")
 
         # Write catalog
