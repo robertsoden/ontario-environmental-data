@@ -262,15 +262,25 @@ jobs:
               for dataset in datasets:
                   dataset_id = dataset["id"]
                   url = dataset["url"]
-                  count = dataset.get("count", 0)
                   size_mb = dataset.get("size_mb", 0)
+
+                  # Handle both count and count_note
+                  if "count" in dataset:
+                      count_display = f'{dataset["count"]:,} features'
+                      count_meta = f'{dataset["count"]:,}'
+                  elif "count_note" in dataset:
+                      count_display = dataset["count_note"]
+                      count_meta = dataset["count_note"]
+                  else:
+                      count_display = "Unknown"
+                      count_meta = "Unknown"
 
                   html += f'''
                   <details>
                       <summary>
                           <span>{dataset_id.replace("_", " ").title()}</span>
                           <span>
-                              <span class="badge badge-count">{count:,} features</span>
+                              <span class="badge badge-count">{count_display}</span>
                               <span class="badge badge-size">{size_mb} MB</span>
                           </span>
                       </summary>
@@ -279,7 +289,7 @@ jobs:
                           <div class="dataset-meta">
                               <span class="meta-item">Category: {dataset["category"]}</span>
                               <span class="meta-item">Format: {dataset["format"].upper()}</span>
-                              <span class="meta-item">Features: {count:,}</span>
+                              <span class="meta-item">Features: {count_meta}</span>
                               <span class="meta-item">Size: {size_mb} MB</span>
                           </div>
                           <a href="{url}" class="download-link" download>Download GeoJSON</a>
