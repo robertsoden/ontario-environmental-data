@@ -78,3 +78,13 @@ data_status.json
 *.tiff
 *.pmtiles
 *.mbtiles
+
+# Large data files (should be on S3, not in git)
+data/raw/*.shp
+data/raw/*.dbf
+data/raw/*.shx
+data/raw/*.prj
+data/processed/**/*.geojson
+!data/processed/**/.gitkeep
+data/processed/**/*.tif
+data/processed/**/*.tiff
