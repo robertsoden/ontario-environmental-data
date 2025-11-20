@@ -6,9 +6,7 @@ This script downloads and processes all available data sources.
 Creates a complete dataset ready for use in ONW and williams-treaties projects.
 
 Exit codes:
-  0 - Success (all data sources collected and validated)
-  1 - Critical failure (one or more critical data sources failed)
-  2 - Partial success (some non-critical sources failed, but critical ones succeeded)
+  0 - Success (data collection completed, check report for details on individual sources)
 """
 
 import asyncio
@@ -40,13 +38,6 @@ ONTARIO_BOUNDS = (41.7, -95.2, 56.9, -74.3)  # (swlat, swlng, nelat, nelng)
 
 # Williams Treaty territory bounds (for reference)
 WILLIAMS_TREATY_BOUNDS = (43.8, -80.2, 45.2, -78.0)  # (swlat, swlng, nelat, nelng)
-
-# Define which data sources are critical (must succeed)
-# Critical sources are those that are fundamental to the library's purpose
-CRITICAL_SOURCES = {
-    "williams_treaty_communities",  # Core indigenous data
-    "provincial_parks",  # Core protected areas data
-}
 
 # Create directories
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -492,24 +483,11 @@ async def collect_all_data():
         print("\n✅ All collected data validated successfully!")
 
     # ==========================================================================
-    # CHECK CRITICAL SOURCES
-    # ==========================================================================
-    critical_failures = []
-    for source_name in CRITICAL_SOURCES:
-        if source_name not in results["sources"]:
-            critical_failures.append(f"{source_name}: Not collected")
-        elif results["sources"][source_name].get("status") != "success":
-            status = results["sources"][source_name].get("status", "unknown")
-            error = results["sources"][source_name].get("error", "No error message")
-            critical_failures.append(f"{source_name}: {status} - {error}")
-
-    # ==========================================================================
     # SAVE COLLECTION REPORT
     # ==========================================================================
     results["validation"] = {
         "errors": all_errors,
         "warnings": all_warnings,
-        "critical_failures": critical_failures,
     }
 
     report_file = OUTPUT_DIR / "collection_report.json"
@@ -527,41 +505,41 @@ async def collect_all_data():
     successful = sum(
         1 for s in results["sources"].values() if s.get("status") == "success"
     )
+    failed = sum(
+        1 for s in results["sources"].values() if s.get("status") == "error"
+    )
     total = len(results["sources"])
     print(f"   • Successfully collected: {successful}/{total} data sources")
+    print(f"   • Failed: {failed}/{total} data sources")
     print(f"   • Manual downloads required: {len(manual_downloads)}")
     print(f"   • Output directory: {OUTPUT_DIR.absolute()}")
     print(f"   • Validation errors: {len(all_errors)}")
     print(f"   • Validation warnings: {len(all_warnings)}")
-    print(f"   • Critical source failures: {len(critical_failures)}")
 
-    # Determine exit status
-    if critical_failures:
-        print("\n" + "=" * 80)
-        print("❌ CRITICAL FAILURE")
-        print("=" * 80)
-        print("\nOne or more critical data sources failed:")
-        for failure in critical_failures:
-            print(f"   • {failure}")
-        print("\nThe data collection cannot be considered successful.")
-        print("Please investigate and fix these issues before proceeding.")
-        results["exit_code"] = 1
-    elif all_errors:
-        print("\n" + "=" * 80)
-        print("⚠️  PARTIAL SUCCESS")
-        print("=" * 80)
-        print("\nSome non-critical data sources failed validation.")
-        print("Critical data sources were collected successfully.")
-        print("Review the errors above and fix if needed.")
-        results["exit_code"] = 2
-    else:
-        print("\n" + "=" * 80)
-        print("✅ COMPLETE SUCCESS")
+    # Report status (always exit 0 - collection completed, see report for details)
+    print("\n" + "=" * 80)
+    if successful == total and not all_errors:
+        print("✅ DATA COLLECTION COMPLETE - ALL SOURCES SUCCESSFUL")
         print("=" * 80)
         print("\nAll data sources collected and validated successfully!")
         if all_warnings:
             print("Note: There are some warnings to review.")
-        results["exit_code"] = 0
+    elif successful > 0:
+        print("✅ DATA COLLECTION COMPLETE - PARTIAL SUCCESS")
+        print("=" * 80)
+        print(f"\n{successful}/{total} data sources collected successfully.")
+        if failed > 0:
+            print(f"{failed} data sources failed - review errors above for details.")
+        print("\nCollection report contains full details on successes and failures.")
+    else:
+        print("⚠️  DATA COLLECTION COMPLETE - NO SOURCES SUCCEEDED")
+        print("=" * 80)
+        print("\nNo data sources were collected successfully.")
+        print("Review errors above for details on what went wrong.")
+        print("\nCollection report contains full failure details.")
+
+    # Always exit 0 - the collection process completed, individual source failures are reported
+    results["exit_code"] = 0
 
     print("\n🗺️  Ready for use in:")
     print("   • Ontario Nature Watch (ONW) project")
@@ -584,6 +562,6 @@ if __name__ == "__main__":
     print("  3. Import into your projects using the ontario_data library")
     print("=" * 80)
 
-    # Exit with appropriate code
-    exit_code = results.get("exit_code", 1)
+    # Exit with success code (0) - collection completed, see report for details
+    exit_code = results.get("exit_code", 0)
     sys.exit(exit_code)

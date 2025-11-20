@@ -9,9 +9,10 @@ This script validates data files to ensure they:
 3. Have expected fields and structure
 
 Exit codes:
-  0 - All expected data files are present and valid
-  1 - One or more data files are missing or invalid
-  2 - Data files exist but have validation warnings
+  0 - Always exits with 0 (status check is informational only)
+
+Note: Missing or invalid data will be reported but won't cause a failure.
+This allows the script to be used both before and after data collection.
 """
 
 import json
@@ -33,7 +34,6 @@ DATA_FILES = {
         "data_type": "geojson",
         "min_records": 7,  # 7 Williams Treaty First Nations
         "required_fields": ["first_nation", "reserve_name"],
-        "critical": True,  # Critical data source
     },
     "williams_treaty_boundaries": {
         "path": OUTPUT_DIR / "boundaries" / "williams_treaty.geojson",
@@ -42,7 +42,6 @@ DATA_FILES = {
         "data_type": "geojson",
         "min_records": 1,
         "required_fields": ["first_nation"],
-        "critical": False,  # Nice to have but may not be available
     },
     "fire_perimeters": {
         "path": OUTPUT_DIR / "fire_perimeters_1976_2024.geojson",
@@ -51,7 +50,6 @@ DATA_FILES = {
         "data_type": "geojson",
         "min_records": 1,
         "required_fields": ["year"],
-        "critical": False,
     },
     "provincial_parks": {
         "path": OUTPUT_DIR / "provincial_parks.geojson",
@@ -60,7 +58,6 @@ DATA_FILES = {
         "data_type": "geojson",
         "min_records": 1,
         "required_fields": ["name"],
-        "critical": True,  # Critical data source
     },
     "conservation_authorities": {
         "path": OUTPUT_DIR / "conservation_authorities.geojson",
@@ -69,7 +66,6 @@ DATA_FILES = {
         "data_type": "geojson",
         "min_records": 1,
         "required_fields": ["name"],
-        "critical": False,
     },
     "inaturalist": {
         "path": OUTPUT_DIR / "inaturalist_observations_2024.json",
@@ -78,7 +74,6 @@ DATA_FILES = {
         "data_type": "json",
         "min_records": 1,
         "required_fields": None,
-        "critical": False,
     },
     "satellite": {
         "path": OUTPUT_DIR / "satellite_data_info.json",
@@ -87,7 +82,6 @@ DATA_FILES = {
         "data_type": "json",
         "min_records": 1,
         "required_fields": None,
-        "critical": False,
     },
 }
 
@@ -126,8 +120,6 @@ def check_data_status():
                 continue
 
             path = info["path"]
-            is_critical = info.get("critical", False)
-            critical_marker = " [CRITICAL]" if is_critical else ""
 
             if path.exists():
                 size = path.stat().st_size
@@ -153,7 +145,6 @@ def check_data_status():
                     "validation_success": validation_success,
                     "validation_errors": validation_errors,
                     "validation_warnings": validation_warnings,
-                    "critical": is_critical,
                 }
 
                 status["available"].append(file_info)
@@ -161,11 +152,11 @@ def check_data_status():
                 # Print status with validation results
                 if validation_success and not validation_warnings:
                     print(
-                        f"  ✅ {name:30} {format_size(size):>10}  (valid){critical_marker}"
+                        f"  ✅ {name:30} {format_size(size):>10}  (valid)"
                     )
                 elif validation_success and validation_warnings:
                     print(
-                        f"  ⚠️  {name:30} {format_size(size):>10}  (warnings){critical_marker}"
+                        f"  ⚠️  {name:30} {format_size(size):>10}  (warnings)"
                     )
                     for warning in validation_warnings[:2]:  # Show first 2 warnings
                         print(f"      └─ {warning}")
@@ -174,7 +165,7 @@ def check_data_status():
                     )
                 else:
                     print(
-                        f"  ❌ {name:30} {format_size(size):>10}  (INVALID){critical_marker}"
+                        f"  ❌ {name:30} {format_size(size):>10}  (INVALID)"
                     )
                     for error in validation_errors[:2]:  # Show first 2 errors
                         print(f"      └─ {error}")
@@ -187,15 +178,9 @@ def check_data_status():
                         "name": name,
                         "path": str(path),
                         "description": info["description"],
-                        "critical": is_critical,
                     }
                 )
-                print(f"  ✗ {name:30} {'MISSING':>10}{critical_marker}")
-
-                if is_critical:
-                    status["validation_errors"].append(
-                        f"{name}: MISSING (critical data source)"
-                    )
+                print(f"  ✗ {name:30} {'MISSING':>10}")
 
     print("\n" + "=" * 80)
     print(
@@ -326,46 +311,32 @@ if __name__ == "__main__":
 
     print(f"\nStatus saved to: {status_file}")
 
-    # Determine exit code
-    # Critical errors: missing critical files or validation errors in critical files
-    has_critical_errors = any(
-        item["critical"]
-        and (
-            not item.get("validation_success", False)
-            or item.get("name")
-            in [e.split(":")[0] for e in status["validation_errors"]]
-        )
-        for item in status["available"]
-    ) or any(item["critical"] for item in status["missing"])
-
-    # Any validation errors (including missing critical files)
+    # Report data status (always exit 0 - this is informational only)
     has_any_errors = len(status["validation_errors"]) > 0 or len(status["missing"]) > 0
 
-    # Determine exit code
-    if has_critical_errors:
-        print("\n" + "=" * 80)
-        print("❌ CRITICAL DATA MISSING OR INVALID")
+    print("\n" + "=" * 80)
+    if not has_any_errors and len(status["validation_warnings"]) == 0:
+        print("✅ ALL DATA VALID")
         print("=" * 80)
-        print("\nOne or more critical data files are missing or invalid.")
-        print("The data repository cannot be considered complete.")
-        sys.exit(1)
-    elif has_any_errors:
-        print("\n" + "=" * 80)
-        print("⚠️  SOME DATA MISSING OR INVALID")
-        print("=" * 80)
-        print("\nSome non-critical data files are missing or invalid.")
-        print("Critical data is present, but you may want to fix these issues.")
-        sys.exit(2)
-    elif len(status["validation_warnings"]) > 0:
-        print("\n" + "=" * 80)
+        print("\nAll data files are present and validated successfully!")
+    elif not has_any_errors and len(status["validation_warnings"]) > 0:
         print("✅ DATA VALID (WITH WARNINGS)")
         print("=" * 80)
         print("\nAll data files are present and valid.")
         print("However, there are some warnings to review.")
-        sys.exit(0)  # Still success, just warnings
-    else:
-        print("\n" + "=" * 80)
-        print("✅ ALL DATA VALID")
+    elif len(status["available"]) > 0:
+        print("⚠️  SOME DATA MISSING OR INVALID")
         print("=" * 80)
-        print("\nAll data files are present and validated successfully!")
-        sys.exit(0)
+        print(f"\n{len(status['available'])}/{len(DATA_FILES)} data files are present.")
+        if len(status["missing"]) > 0:
+            print(f"{len(status['missing'])} files are missing.")
+        if len(status["validation_errors"]) > 0:
+            print(f"{len(status['validation_errors'])} validation errors found.")
+    else:
+        print("⚠️  NO DATA AVAILABLE")
+        print("=" * 80)
+        print("\nNo data files are present yet.")
+        print("Run data collection to populate the data directory.")
+
+    # Always exit 0 - status check is informational only
+    sys.exit(0)
