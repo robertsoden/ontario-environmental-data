@@ -63,8 +63,9 @@ from ontario_data.sources.indigenous import (
 # Protected areas clients
 from ontario_data.sources.protected_areas import OntarioGeoHubClient
 
-# Satellite data clients
-from ontario_data.sources.satellite import SatelliteDataClient
+# Satellite data clients - lazy import to avoid rasterio warnings in vector workflows
+# from ontario_data.sources.satellite import SatelliteDataClient
+# Import satellite only when needed in satellite-specific workflows
 
 # Utilities
 from ontario_data.utils import filter_by_bounds, get_bounds_from_aoi, point_in_bounds

@@ -21,69 +21,10 @@ from datetime import datetime
 from pathlib import Path
 
 from ontario_data import validate_data_file
+from ontario_data.datasets import DATASETS, get_all_categories
 
 DATA_DIR = Path("data")
 OUTPUT_DIR = DATA_DIR / "processed"
-
-# Define expected data files with validation requirements
-DATA_FILES = {
-    "williams_treaty_communities": {
-        "path": OUTPUT_DIR / "communities" / "williams_treaty_communities.geojson",
-        "description": "Williams Treaty First Nations community points",
-        "type": "boundaries",
-        "data_type": "geojson",
-        "min_records": 7,  # 7 Williams Treaty First Nations
-        "required_fields": ["first_nation", "reserve_name"],
-    },
-    "williams_treaty_boundaries": {
-        "path": OUTPUT_DIR / "boundaries" / "williams_treaty.geojson",
-        "description": "Williams Treaty territory boundary polygon",
-        "type": "boundaries",
-        "data_type": "geojson",
-        "min_records": 1,
-        "required_fields": ["ENAME"],  # English name of the treaty
-    },
-    "fire_perimeters": {
-        "path": OUTPUT_DIR / "fire_perimeters_1976_2024.geojson",
-        "description": "Historical fire perimeters (1976-2024)",
-        "type": "environmental",
-        "data_type": "geojson",
-        "min_records": 1,
-        "required_fields": ["year"],
-    },
-    "provincial_parks": {
-        "path": OUTPUT_DIR / "provincial_parks.geojson",
-        "description": "Ontario provincial parks boundaries",
-        "type": "protected_areas",
-        "data_type": "geojson",
-        "min_records": 1,
-        "required_fields": ["name"],
-    },
-    "conservation_authorities": {
-        "path": OUTPUT_DIR / "conservation_authorities.geojson",
-        "description": "Conservation authority boundaries",
-        "type": "protected_areas",
-        "data_type": "geojson",
-        "min_records": 1,
-        "required_fields": ["name"],
-    },
-    "inaturalist": {
-        "path": OUTPUT_DIR / "inaturalist_observations_2024.json",
-        "description": "iNaturalist biodiversity observations",
-        "type": "biodiversity",
-        "data_type": "json",
-        "min_records": 1,
-        "required_fields": None,
-    },
-    "satellite": {
-        "path": OUTPUT_DIR / "satellite_data_info.json",
-        "description": "Satellite data information (NDVI, land cover)",
-        "type": "environmental",
-        "data_type": "json",
-        "min_records": 1,
-        "required_fields": None,
-    },
-}
 
 
 def format_size(size_bytes):
@@ -111,17 +52,22 @@ def check_data_status():
     print("=" * 80)
     print()
 
-    for data_type in ["boundaries", "protected_areas", "biodiversity", "environmental"]:
-        print(f"\n{data_type.upper().replace('_', ' ')}:")
+    # Get all categories from registry
+    categories = get_all_categories()
+
+    for category in categories:
+        print(f"\n{category.upper().replace('_', ' ')}:")
         print("-" * 40)
 
-        for name, info in DATA_FILES.items():
-            if info["type"] != data_type:
-                continue
+        # Get datasets in this category from registry
+        category_datasets = [
+            (name, ds) for name, ds in DATASETS.items() if ds.category == category
+        ]
 
-            path = info["path"]
+        for name, dataset in category_datasets:
+            path = dataset.output_path
 
-            if path.exists():
+            if path and path.exists():
                 size = path.stat().st_size
                 modified = datetime.fromtimestamp(path.stat().st_mtime)
 
@@ -129,9 +75,9 @@ def check_data_status():
                 validation_success, validation_errors, validation_warnings = (
                     validate_data_file(
                         path,
-                        info["data_type"],
-                        info.get("min_records", 1),
-                        info.get("required_fields"),
+                        dataset.output_format,
+                        dataset.min_records,
+                        dataset.required_fields,
                     )
                 )
 
@@ -170,8 +116,8 @@ def check_data_status():
                 status["missing"].append(
                     {
                         "name": name,
-                        "path": str(path),
-                        "description": info["description"],
+                        "path": str(path) if path else "unknown",
+                        "description": dataset.description,
                     }
                 )
                 print(f"  ✗ {name:30} {'MISSING':>10}")
@@ -199,17 +145,22 @@ def check_data_status():
             print(f"   ... and {len(status['validation_warnings']) - 10} more")
 
     # Group by type
-    for data_type in ["boundaries", "protected_areas", "biodiversity", "environmental"]:
-        type_files = [f for f in DATA_FILES.values() if f["type"] == data_type]
+    for category in categories:
+        category_count = len(
+            [ds for ds in DATASETS.values() if ds.category == category]
+        )
         available_count = sum(
             1
             for item in status["available"]
-            if any(f["path"] == Path(item["path"]) for f in type_files)
+            if any(
+                ds.output_path == Path(item["path"])
+                for ds in DATASETS.values()
+                if ds.category == category
+            )
         )
-        total_count = len(type_files)
-        status["summary"][data_type] = {
+        status["summary"][category] = {
             "available": available_count,
-            "total": total_count,
+            "total": category_count,
         }
 
     return status
@@ -282,20 +233,17 @@ if __name__ == "__main__":
     # Check vector/tabular data
     status = check_data_status()
 
-    # Check satellite data
-    satellite_status = check_satellite_data_status()
+    # Note: Satellite data has its own separate workflow and status check
+    # Run check_satellite_status.py to check satellite data
 
-    # Combine results
+    # Save results
     combined_status = {
         "timestamp": status["timestamp"],
-        "vector_data": {
-            "available": status["available"],
-            "missing": status["missing"],
-            "validation_errors": status["validation_errors"],
-            "validation_warnings": status["validation_warnings"],
-            "summary": status["summary"],
-        },
-        "satellite_data": satellite_status,
+        "available": status["available"],
+        "missing": status["missing"],
+        "validation_errors": status["validation_errors"],
+        "validation_warnings": status["validation_warnings"],
+        "summary": status["summary"],
     }
 
     # Save status to JSON for CI/CD
@@ -321,7 +269,8 @@ if __name__ == "__main__":
     elif len(status["available"]) > 0:
         print("⚠️  SOME DATA MISSING OR INVALID")
         print("=" * 80)
-        print(f"\n{len(status['available'])}/{len(DATA_FILES)} data files are present.")
+        total_datasets = len(DATASETS)
+        print(f"\n{len(status['available'])}/{total_datasets} data files are present.")
         if len(status["missing"]) > 0:
             print(f"{len(status['missing'])} files are missing.")
         if len(status["validation_errors"]) > 0:

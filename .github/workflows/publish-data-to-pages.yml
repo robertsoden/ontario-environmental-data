@@ -165,7 +165,7 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install PyYAML
+      - name: Install dependencies
         run: pip install pyyaml
 
       - name: Generate data catalog and layer configurations
@@ -175,101 +175,55 @@ jobs:
           import yaml
           from pathlib import Path
           from datetime import datetime
+          import sys
+          import os
 
-          # Define expected datasets with metadata
-          DATASETS = {
-              "williams_treaty_boundaries": {
-                  "path": "processed/boundaries/williams_treaty.geojson",
-                  "type": "geojson",
-                  "layer_type": "fill",
-                  "name": "Williams Treaty Territories",
-                  "description": "Boundaries of Williams Treaty First Nations territories",
-                  "source": "Statistics Canada",
-                  "paint": {
-                      "fill-color": "#4a90e2",
-                      "fill-opacity": 0.3,
-                      "fill-outline-color": "#2c5282"
-                  },
-                  "layout": {"visibility": "visible"}
+          # Add current directory to Python path so we can import ontario_data
+          sys.path.insert(0, os.getcwd())
+
+          # Import the dataset registry
+          from ontario_data.datasets import DATASETS
+
+          # Default layer styling for different geometry types
+          DEFAULT_STYLES = {
+              "fill": {
+                  "fill-color": "#4a90e2",
+                  "fill-opacity": 0.3,
+                  "fill-outline-color": "#2c5282"
               },
-              "williams_treaty_communities": {
-                  "path": "processed/communities/williams_treaty_communities.geojson",
-                  "type": "geojson",
-                  "layer_type": "circle",
-                  "name": "Williams Treaty Communities",
-                  "description": "Community locations within Williams Treaty territories",
-                  "source": "Statistics Canada",
-                  "paint": {
-                      "circle-color": "#e74c3c",
-                      "circle-radius": 8,
-                      "circle-stroke-width": 2,
-                      "circle-stroke-color": "#ffffff"
-                  },
-                  "layout": {"visibility": "visible"}
+              "circle": {
+                  "circle-color": "#e74c3c",
+                  "circle-radius": 8,
+                  "circle-stroke-width": 2,
+                  "circle-stroke-color": "#ffffff"
               },
-              "fire_perimeters": {
-                  "path": "processed/fire_perimeters_1976_2024.geojson",
-                  "type": "geojson",
-                  "layer_type": "fill",
-                  "name": "Fire Perimeters (1976-2024)",
-                  "description": "Historical wildfire perimeters in Ontario",
-                  "source": "Canadian Wildfire Information System",
-                  "paint": {
-                      "fill-color": "#ff6b6b",
-                      "fill-opacity": 0.4,
-                      "fill-outline-color": "#c92a2a"
-                  },
-                  "layout": {"visibility": "visible"}
-              },
-              "provincial_parks": {
-                  "path": "processed/provincial_parks.geojson",
-                  "type": "geojson",
-                  "layer_type": "fill",
-                  "name": "Provincial Parks",
-                  "description": "Ontario provincial parks and protected areas",
-                  "source": "Ontario GeoHub",
-                  "paint": {
-                      "fill-color": "#51cf66",
-                      "fill-opacity": 0.3,
-                      "fill-outline-color": "#2b8a3e"
-                  },
-                  "layout": {"visibility": "visible"}
-              },
-              "conservation_authorities": {
-                  "path": "processed/conservation_authorities.geojson",
-                  "type": "geojson",
-                  "layer_type": "fill",
-                  "name": "Conservation Authorities",
-                  "description": "Conservation authority boundaries in Ontario",
-                  "source": "Ontario GeoHub",
-                  "paint": {
-                      "fill-color": "#4dabf7",
-                      "fill-opacity": 0.2,
-                      "fill-outline-color": "#1971c2"
-                  },
-                  "layout": {"visibility": "visible"}
-              },
-              "inaturalist": {
-                  "path": "processed/inaturalist_observations_2024.json",
-                  "type": "json",
-                  "layer_type": "circle",
-                  "name": "iNaturalist Observations",
-                  "description": "Biodiversity observations from iNaturalist",
-                  "source": "iNaturalist",
-                  "paint": {
-                      "circle-color": "#a9e34b",
-                      "circle-radius": 6,
-                      "circle-stroke-width": 1,
-                      "circle-stroke-color": "#5c940d"
-                  },
-                  "layout": {"visibility": "visible"}
+              "line": {
+                  "line-color": "#4a90e2",
+                  "line-width": 2
               }
           }
+
+          # Infer layer type from output format and path
+          def infer_layer_type(dataset):
+              if dataset.output_format == "geojson":
+                  # Try to infer from path or description
+                  path_str = str(dataset.output_path).lower()
+                  desc_str = dataset.description.lower()
+
+                  if "point" in desc_str or "communit" in desc_str or "observation" in desc_str:
+                      return "circle"
+                  elif "line" in desc_str or "river" in desc_str or "road" in desc_str:
+                      return "line"
+                  else:
+                      return "fill"  # Default for polygons
+              elif dataset.output_format == "json":
+                  return "circle"  # Assume observations are points
+              return "fill"
 
           # Base URL for GitHub Pages
           BASE_URL = "https://robertsoden.io/ontario-environmental-data"
 
-          # Scan for available datasets
+          # Scan for available datasets from the registry
           catalog = {
               "generated_at": datetime.now().isoformat(),
               "base_url": BASE_URL,
@@ -279,35 +233,41 @@ jobs:
 
           data_dir = Path("data")
 
-          for layer_id, metadata in DATASETS.items():
-              file_path = data_dir / metadata["path"]
+          for dataset_id, dataset in DATASETS.items():
+              # Only process enabled datasets that have output files
+              if not dataset.enabled or not dataset.output_path:
+                  continue
+
+              file_path = data_dir / dataset.output_path
 
               if file_path.exists():
                   # Dataset exists
                   file_size = file_path.stat().st_size
+                  layer_type = infer_layer_type(dataset)
+
                   layer_info = {
-                      "id": layer_id,
-                      "url": f"{BASE_URL}/{metadata['path']}",
-                      "local_path": metadata["path"],
-                      "name": metadata["name"],
-                      "description": metadata["description"],
-                      "source": metadata["source"],
-                      "type": metadata["type"],
-                      "layer_type": metadata["layer_type"],
+                      "id": dataset_id,
+                      "url": f"{BASE_URL}/{dataset.output_path}",
+                      "local_path": str(dataset.output_path),
+                      "name": dataset.name,
+                      "description": dataset.description,
+                      "category": dataset.category,
+                      "type": dataset.output_format,
+                      "layer_type": layer_type,
                       "size_bytes": file_size,
                       "size_human": f"{file_size / 1024:.1f} KB" if file_size < 1024*1024 else f"{file_size / (1024*1024):.1f} MB",
-                      "paint": metadata.get("paint", {}),
-                      "layout": metadata.get("layout", {})
+                      "paint": DEFAULT_STYLES.get(layer_type, {}),
+                      "layout": {"visibility": "visible"}
                   }
                   catalog["available_layers"].append(layer_info)
               else:
                   # Dataset missing
                   catalog["unavailable_layers"].append({
-                      "id": layer_id,
-                      "name": metadata["name"],
-                      "expected_path": metadata["path"],
-                      "description": metadata["description"],
-                      "source": metadata["source"]
+                      "id": dataset_id,
+                      "name": dataset.name,
+                      "expected_path": str(dataset.output_path),
+                      "description": dataset.description,
+                      "category": dataset.category
                   })
 
           # Write catalog as JSON
