@@ -39,7 +39,9 @@ def pytest_collection_modifyitems(config, items):
         return
 
     # Skip integration tests by default
-    skip_integration = pytest.mark.skip(reason="Integration test - skipped by default. Run with: pytest -m integration")
+    skip_integration = pytest.mark.skip(
+        reason="Integration test - skipped by default. Run with: pytest -m integration"
+    )
     for item in items:
         if "integration" in item.keywords:
             item.add_marker(skip_integration)
