@@ -337,6 +337,71 @@ async def _collect_conservation_authorities() -> Dict[str, Any]:
 
 
 # -----------------------------------------------------------------------------
+# Ontario Municipalities
+# -----------------------------------------------------------------------------
+async def _collect_ontario_municipalities() -> Dict[str, Any]:
+    """Collect Ontario municipal boundaries."""
+    print("\n🏛️  Fetching Ontario municipalities...")
+
+    client = OntarioBoundariesClient()
+    municipalities_gdf = await client.get_municipalities(province="ON")
+
+    if municipalities_gdf.empty:
+        return {"status": "no_data"}
+
+    output_file = OUTPUT_DIR / "boundaries" / "ontario_municipalities.geojson"
+    output_file.parent.mkdir(parents=True, exist_ok=True)
+    municipalities_gdf.to_file(output_file, driver="GeoJSON")
+
+    print(f"✅ Saved {len(municipalities_gdf)} municipalities")
+    print(f"   File: {output_file}")
+
+    return {
+        "status": "success",
+        "count": len(municipalities_gdf),
+        "file": str(output_file),
+    }
+
+
+# -----------------------------------------------------------------------------
+# Watersheds
+# -----------------------------------------------------------------------------
+async def _collect_watersheds() -> Dict[str, Any]:
+    """Collect Ontario watershed boundaries from local shapefile."""
+    import geopandas as gpd
+
+    shapefile = RAW_DIR / "ONT_WSHED_BDRY.shp"
+
+    if not shapefile.exists():
+        print(f"⚠️  Watershed shapefile not found: {shapefile}")
+        return {"status": "skipped", "note": "Shapefile not found"}
+
+    print("\n🌊 Loading Ontario watersheds from shapefile...")
+
+    # Read the shapefile
+    watersheds_gdf = gpd.read_file(shapefile)
+
+    if watersheds_gdf.empty:
+        return {"status": "no_data"}
+
+    # Ensure CRS is WGS84 for web compatibility
+    if watersheds_gdf.crs and watersheds_gdf.crs.to_epsg() != 4326:
+        watersheds_gdf = watersheds_gdf.to_crs(epsg=4326)
+
+    output_file = OUTPUT_DIR / "watersheds.geojson"
+    watersheds_gdf.to_file(output_file, driver="GeoJSON")
+
+    print(f"✅ Saved {len(watersheds_gdf)} watersheds")
+    print(f"   File: {output_file}")
+
+    return {
+        "status": "success",
+        "count": len(watersheds_gdf),
+        "file": str(output_file),
+    }
+
+
+# -----------------------------------------------------------------------------
 # Fire Perimeters
 # -----------------------------------------------------------------------------
 async def _collect_fire_perimeters() -> Dict[str, Any]:
@@ -496,6 +561,30 @@ DATASETS: Dict[str, DatasetDefinition] = {
         enabled=False,  # CSV doesn't have required format
     ),
 
+    "ontario_municipalities": DatasetDefinition(
+        id="ontario_municipalities",
+        name="Ontario Municipalities",
+        description="Ontario municipal boundaries (Census Subdivisions)",
+        category="boundaries",
+        collect_fn=_collect_ontario_municipalities,
+        output_path=Path("data/processed/boundaries/ontario_municipalities.geojson"),
+        output_format="geojson",
+        min_records=1,
+        required_fields=["CSDNAME"],
+    ),
+
+    "watersheds": DatasetDefinition(
+        id="watersheds",
+        name="Watersheds",
+        description="Ontario watershed boundaries",
+        category="environmental",
+        collect_fn=_collect_watersheds,
+        output_path=Path("data/processed/watersheds.geojson"),
+        output_format="geojson",
+        min_records=1,
+        required_fields=[],  # Field names vary by shapefile source
+    ),
+
     "fire_perimeters": DatasetDefinition(
         id="fire_perimeters",
         name="Fire Perimeters",
@@ -506,18 +595,6 @@ DATASETS: Dict[str, DatasetDefinition] = {
         output_format="geojson",
         min_records=1,
         required_fields=["year"],
-    ),
-
-    "watersheds": DatasetDefinition(
-        id="watersheds",
-        name="Watersheds",
-        description="Great Lakes watershed boundaries",
-        category="environmental",
-        output_path=Path("data/processed/watersheds.geojson"),
-        output_format="geojson",
-        min_records=1,
-        required_fields=["name"],
-        enabled=False,  # Not yet implemented
     ),
 }
 
