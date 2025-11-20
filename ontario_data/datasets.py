@@ -337,6 +337,48 @@ async def _collect_conservation_authorities() -> Dict[str, Any]:
 
 
 # -----------------------------------------------------------------------------
+# Ontario Provincial Boundary
+# -----------------------------------------------------------------------------
+async def _collect_ontario_boundary() -> Dict[str, Any]:
+    """Collect Ontario provincial boundary from local shapefile."""
+    import geopandas as gpd
+
+    shapefile = RAW_DIR / "lpr_000b21a_e.shp"
+
+    if not shapefile.exists():
+        print(f"⚠️  Provincial boundary shapefile not found: {shapefile}")
+        return {"status": "skipped", "note": "Shapefile not found"}
+
+    print("\n🗺️  Loading Ontario provincial boundary from shapefile...")
+
+    # Read the shapefile
+    all_provinces_gdf = gpd.read_file(shapefile)
+
+    # Filter to Ontario (PRUID = 35)
+    ontario_gdf = all_provinces_gdf[all_provinces_gdf["PRUID"] == "35"].copy()
+
+    if ontario_gdf.empty:
+        return {"status": "no_data"}
+
+    # Ensure CRS is WGS84 for web compatibility
+    if ontario_gdf.crs and ontario_gdf.crs.to_epsg() != 4326:
+        ontario_gdf = ontario_gdf.to_crs(epsg=4326)
+
+    output_file = OUTPUT_DIR / "boundaries" / "ontario_boundary.geojson"
+    output_file.parent.mkdir(parents=True, exist_ok=True)
+    ontario_gdf.to_file(output_file, driver="GeoJSON")
+
+    print(f"✅ Saved Ontario provincial boundary")
+    print(f"   File: {output_file}")
+
+    return {
+        "status": "success",
+        "count": len(ontario_gdf),
+        "file": str(output_file),
+    }
+
+
+# -----------------------------------------------------------------------------
 # Ontario Municipalities
 # -----------------------------------------------------------------------------
 async def _collect_ontario_municipalities() -> Dict[str, Any]:
@@ -559,6 +601,18 @@ DATASETS: Dict[str, DatasetDefinition] = {
         min_records=1,
         required_fields=["community_name", "latitude", "longitude"],
         enabled=False,  # CSV doesn't have required format
+    ),
+
+    "ontario_boundary": DatasetDefinition(
+        id="ontario_boundary",
+        name="Ontario Provincial Boundary",
+        description="Ontario provincial boundary polygon",
+        category="boundaries",
+        collect_fn=_collect_ontario_boundary,
+        output_path=Path("data/processed/boundaries/ontario_boundary.geojson"),
+        output_format="geojson",
+        min_records=1,
+        required_fields=["PRNAME"],
     ),
 
     "ontario_municipalities": DatasetDefinition(
