@@ -252,27 +252,3 @@ jobs:
         echo "3. Update tile URLs in satellite_data_registry.json" >> $GITHUB_STEP_SUMMARY
         echo "4. Test tiles in map application" >> $GITHUB_STEP_SUMMARY
 
-  update-registry:
-    name: Update Registry
-    needs: process-satellite-data
-    if: success()
-    runs-on: ubuntu-latest
-
-    steps:
-    - uses: actions/checkout@v4
-
-    - name: Download processing artifacts
-      uses: actions/download-artifact@v4
-      with:
-        name: satellite-${{ github.event.inputs.data_type }}-${{ github.event.inputs.year }}
-
-    - name: Commit updated registry
-      run: |
-        git config user.name "GitHub Actions"
-        git config user.email "actions@github.com"
-
-        if [ -f "satellite_data_registry.json" ]; then
-          git add satellite_data_registry.json
-          git commit -m "Update satellite data registry: ${{ github.event.inputs.data_type }} ${{ github.event.inputs.year }}" || echo "No changes to commit"
-          git push
-        fi
