@@ -38,14 +38,26 @@ except ImportError:
 
 
 class SatelliteDataClient(BaseClient):
-    """Client for satellite imagery and derived products.
+    """Client for satellite data metadata and download URLs.
 
-    Provides access to:
-    - Land cover classification from Natural Resources Canada
-    - NDVI vegetation indices from Planetary Computer (Sentinel-2)
-    - Digital elevation models from Natural Resources Canada
+    This client provides metadata about satellite data sources including:
+    - Data source URLs (government FTP servers)
+    - Available years and resolutions
+    - Download instructions for manual acquisition
+    - Synthetic demo data for testing (optional)
 
-    Note: Requires optional dependencies for full functionality:
+    IMPORTANT: This client does NOT download or process actual raster data.
+    For full raster processing (download, clip, vectorize, tile generation):
+    - Use: scripts/process_satellite_data.py
+    - Or run: "Satellite Data Processing" GitHub Actions workflow
+    - See: docs/SATELLITE_DATA_GUIDE.md for complete documentation
+
+    Data Sources:
+    - Land cover classification (NRCan NALCMS, 30m)
+    - NDVI vegetation indices (Statistics Canada MODIS, 250m)
+    - Digital elevation models (NRCan CDEM, 20m)
+
+    Note: Optional dependencies required for demo data generation:
         pip install rasterio pystac-client planetary-computer
     """
 

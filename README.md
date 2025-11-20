@@ -6,13 +6,64 @@ A Python library for accessing Ontario-specific environmental and biodiversity d
 
 The `ontario-environmental-data` library provides clean, Pythonic interfaces to Ontario environmental data APIs including:
 
-- **Biodiversity Data**: iNaturalist, eBird
-- **Indigenous Data**: Water advisories, First Nations reserve boundaries
-- **Protected Areas**: Ontario provincial parks, conservation authorities
+- **Biodiversity Data**: iNaturalist, eBird observations
+- **Indigenous Data**: Water advisories, First Nations reserve boundaries, Community Well-Being Index
+- **Protected Areas**: Ontario provincial parks, conservation authorities, watersheds
 - **Fire Data**: CWFIS fire perimeters and fuel types
-- **Future**: Water quality (DataStream, PWQMN), satellite data (NDVI, land cover)
+- **Boundary Data**: Municipal boundaries, conservation authority boundaries, watershed boundaries
+- **Satellite/Raster Data**: NDVI vegetation indices, land cover classification, digital elevation models (see [Satellite Data Guide](docs/SATELLITE_DATA_GUIDE.md))
 
 This library was created to share data access components between the [Ontario Nature Watch](https://github.com/robertsoden/onw) LLM agent and the [Williams Treaties](https://github.com/robertsoden/williams-treaties) mapping project.
+
+## Data Architecture
+
+This library manages two distinct types of environmental data with different workflows:
+
+### Vector/Tabular Data (< 100 MB)
+
+**What:** GeoJSON, JSON, CSV files with geographic features and observations
+
+**Examples:**
+- Protected area boundaries
+- Fire perimeters
+- Biodiversity observations
+- Community points
+- Municipal boundaries
+
+**Collection:**
+- Via Python library clients: `INaturalistClient`, `OntarioGeoHubClient`, etc.
+- Via GitHub Actions: [Data Collection workflow](.github/workflows/data-collection.yml)
+- Stored in repository: `data/processed/*.geojson`
+
+**Usage:**
+```python
+from ontario_data import OntarioGeoHubClient
+client = OntarioGeoHubClient()
+parks = await client.get_provincial_parks()
+```
+
+### Raster/Tile Data (500 MB - 2 GB)
+
+**What:** Satellite imagery derivatives as vector tiles for web mapping
+
+**Examples:**
+- NDVI vegetation indices (250m resolution, Ontario-wide)
+- Land cover classification (30m, 19 classes)
+- Digital elevation model (20m)
+
+**Processing:**
+- Via dedicated pipeline: `scripts/process_satellite_data.py`
+- Via GitHub Actions: [Satellite Processing workflow](.github/workflows/satellite-processing.yml)
+- Stored externally: AWS S3, Azure Blob Storage, or Cloudflare R2
+- Takes 2-6 hours to process (multi-GB downloads + tile generation)
+
+**Documentation:** See [Satellite Data Guide](docs/SATELLITE_DATA_GUIDE.md) for complete setup
+
+**Why separate?** Raster data is:
+- Too large for git repository (6-7 GB raw files)
+- Requires specialized processing (rasterio, tippecanoe, GDAL)
+- Needs cloud storage for tile serving
+- Updated infrequently (annually or every 5 years)
 
 ## Features
 

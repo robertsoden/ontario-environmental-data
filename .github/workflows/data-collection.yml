@@ -37,10 +37,6 @@ on:
         description: '☐ iNaturalist (biodiversity observations)'
         type: boolean
         default: false
-      satellite:
-        description: '☐ Satellite Data (NDVI, land cover info)'
-        type: boolean
-        default: false
       # Options
       upload_artifacts:
         description: '📦 Upload generated data as artifacts (30 days)'
@@ -124,7 +120,6 @@ jobs:
             CWFISClient,
             INaturalistClient,
             OntarioGeoHubClient,
-            SatelliteDataClient,
             StatisticsCanadaWFSClient,
         )
 
@@ -144,7 +139,6 @@ jobs:
             'provincial_parks': os.getenv('COLLECT_PARKS', 'false') == 'true',
             'conservation_authorities': os.getenv('COLLECT_CA', 'false') == 'true',
             'inaturalist': os.getenv('COLLECT_INAT', 'false') == 'true',
-            'satellite': os.getenv('COLLECT_SATELLITE', 'false') == 'true',
         }
 
         async def main():
@@ -266,21 +260,6 @@ jobs:
                     print(f"  ✗ Error: {e}")
                     results["collected"]["inaturalist"] = {"status": "error", "error": str(e)}
 
-            # Satellite
-            if SELECTED['satellite']:
-                print("\n[Satellite Data]")
-                try:
-                    client = SatelliteDataClient()
-                    info = {"message": "Satellite data client initialized", "timestamp": datetime.now().isoformat()}
-                    output_file = OUTPUT_DIR / "satellite_data_info.json"
-                    with open(output_file, "w") as f:
-                        json.dump(info, f, indent=2)
-                    print(f"  ✓ Saved satellite info to {output_file}")
-                    results["collected"]["satellite"] = {"status": "success", "file": str(output_file)}
-                except Exception as e:
-                    print(f"  ✗ Error: {e}")
-                    results["collected"]["satellite"] = {"status": "error", "error": str(e)}
-
             # Save results
             results_file = Path("collection_results.json")
             with open(results_file, "w") as f:
@@ -306,7 +285,6 @@ jobs:
         COLLECT_PARKS: ${{ github.event.inputs.provincial_parks }}
         COLLECT_CA: ${{ github.event.inputs.conservation_authorities }}
         COLLECT_INAT: ${{ github.event.inputs.inaturalist }}
-        COLLECT_SATELLITE: ${{ github.event.inputs.satellite }}
         EBIRD_API_KEY: ${{ secrets.EBIRD_API_KEY }}
 
     - name: Check after status
@@ -348,7 +326,6 @@ jobs:
         echo "| Provincial Parks | ${{ github.event.inputs.provincial_parks == 'true' && '✅' || '⬜' }} |" >> $GITHUB_STEP_SUMMARY
         echo "| Conservation Authorities | ${{ github.event.inputs.conservation_authorities == 'true' && '✅' || '⬜' }} |" >> $GITHUB_STEP_SUMMARY
         echo "| iNaturalist | ${{ github.event.inputs.inaturalist == 'true' && '✅' || '⬜' }} |" >> $GITHUB_STEP_SUMMARY
-        echo "| Satellite Data | ${{ github.event.inputs.satellite == 'true' && '✅' || '⬜' }} |" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
 
         if [ -f "collection_results.json" ]; then
