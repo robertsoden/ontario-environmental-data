@@ -273,26 +273,6 @@ ruff check ontario_data/ tests/
 # Type check
 mypy ontario_data/
 ```
-
-## Cultural Sensitivity
-
-When working with Indigenous data:
-
-✅ Follow OCAP® principles (Ownership, Control, Access, Possession)
-✅ Respect data sovereignty
-✅ Include proper attribution
-✅ Obtain permission for sensitive data
-✅ Use respectful terminology
-
-The Williams Treaty First Nations are:
-- Alderville First Nation
-- Curve Lake First Nation
-- Hiawatha First Nation
-- Mississaugas of Scugog Island First Nation
-- Chippewas of Beausoleil First Nation
-- Chippewas of Georgina Island First Nation
-- Chippewas of Rama First Nation
-
 ## Contributing
 
 Contributions welcome! Please:
