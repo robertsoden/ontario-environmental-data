@@ -266,8 +266,8 @@ jobs:
 
         echo "### Collection Report" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
-        echo "Full data collection script (collect_all_data.py) was executed." >> $GITHUB_STEP_SUMMARY
-        echo "All available data sources were attempted." >> $GITHUB_STEP_SUMMARY
+        echo "Data collection script (collect_data.py) was executed." >> $GITHUB_STEP_SUMMARY
+        echo "Selected datasets were collected from the registry." >> $GITHUB_STEP_SUMMARY
         echo "See collection_report.json for detailed results." >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
 

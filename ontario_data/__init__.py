@@ -1,6 +1,7 @@
 """Ontario Environmental Data Library
 
-A Python library for accessing Ontario-specific environmental and biodiversity data sources.
+A Python library for accessing Ontario-specific environmental and
+biodiversity data sources.
 
 This library provides:
 - API clients for biodiversity data (iNaturalist, eBird)
@@ -66,7 +67,6 @@ from ontario_data.sources.protected_areas import OntarioGeoHubClient
 # Satellite data clients - lazy import to avoid rasterio warnings in vector workflows
 # from ontario_data.sources.satellite import SatelliteDataClient
 # Import satellite only when needed in satellite-specific workflows
-
 # Utilities
 from ontario_data.utils import filter_by_bounds, get_bounds_from_aoi, point_in_bounds
 
@@ -108,8 +108,8 @@ __all__ = [
     "WaterAdvisoriesClient",
     # Protected areas clients
     "OntarioGeoHubClient",
-    # Satellite data clients
-    "SatelliteDataClient",
+    # Satellite data clients (not imported - use separate satellite workflow)
+    # "SatelliteDataClient",
     # Data models
     "BiodiversityObservation",
     "CommunityWellBeing",

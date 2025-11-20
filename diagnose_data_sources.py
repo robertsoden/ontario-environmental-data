@@ -127,7 +127,7 @@ async def test_fire_perimeters():
             return {"status": "success", "count": len(gdf), "error": None}
         else:
             print(f"  {YELLOW}⚠️  WARNING{RESET}: API returned 0 fire perimeters")
-            print(f"      Note: This might be normal if no fires in 2024, or API issue")
+            print("      Note: This might be normal if no fires in 2024, or API issue")
             return {"status": "no_data", "count": 0, "error": "Empty result - check logs for API errors"}
 
     except Exception as e:
@@ -200,7 +200,7 @@ async def main():
     print("=" * 80)
     print("ONTARIO ENVIRONMENTAL DATA - API DIAGNOSTICS")
     print("=" * 80)
-    print(f"\nTesting connectivity and functionality of all data sources...")
+    print("\nTesting connectivity and functionality of all data sources...")
     print(f"Timestamp: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 
     # Run all tests

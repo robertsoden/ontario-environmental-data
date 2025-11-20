@@ -12,6 +12,7 @@ from ontario_data.sources.indigenous import (
     WaterAdvisoriesClient,
 )
 from ontario_data.sources.protected_areas import OntarioGeoHubClient
+
 # Satellite client not imported - use separate satellite workflow
 # from ontario_data.sources.satellite import SatelliteDataClient
 

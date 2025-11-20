@@ -14,7 +14,7 @@ import json
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Optional, Callable, Any
+from typing import Any, Callable, Dict, List, Optional
 
 from ontario_data import (
     WILLIAMS_TREATY_FIRST_NATIONS,
@@ -25,8 +25,8 @@ from ontario_data import (
     OntarioBoundariesClient,
     OntarioGeoHubClient,
     StatisticsCanadaWFSClient,
-    WaterAdvisoriesClient,
 )
+
 # Note: SatelliteDataClient not imported - satellite data has separate workflow
 
 # Constants
@@ -102,7 +102,9 @@ async def _collect_williams_treaty_reserves() -> Dict[str, Any]:
 
     # Get all Ontario reserves first
     client = StatisticsCanadaWFSClient()
-    all_reserves_gdf = await client.get_reserve_boundaries(province="ON", max_features=1000)
+    all_reserves_gdf = await client.get_reserve_boundaries(
+        province="ON", max_features=1000
+    )
 
     if all_reserves_gdf.empty:
         return {"status": "no_data"}
@@ -158,7 +160,7 @@ async def _collect_williams_treaty_boundaries() -> Dict[str, Any]:
     output_file.parent.mkdir(parents=True, exist_ok=True)
     williams_gdf.to_file(output_file, driver="GeoJSON")
 
-    print(f"✅ Saved Williams Treaty boundary")
+    print("✅ Saved Williams Treaty boundary")
     print(f"   File: {output_file}")
 
     return {
@@ -355,7 +357,7 @@ async def _collect_fire_perimeters() -> Dict[str, Any]:
     fire_gdf.to_file(output_file, driver="GeoJSON")
 
     print(f"✅ Saved {len(fire_gdf)} fire perimeters")
-    print(f"   Years: 1976-2024")
+    print("   Years: 1976-2024")
     print(f"   File: {output_file}")
 
     return {
@@ -411,7 +413,10 @@ DATASETS: Dict[str, DatasetDefinition] = {
     "williams_treaty_reserves": DatasetDefinition(
         id="williams_treaty_reserves",
         name="Williams Treaty Reserves",
-        description="Williams Treaty First Nations reserves (subset of ontario_reserves)",
+        description=(
+            "Williams Treaty First Nations reserves "
+            "(subset of ontario_reserves)"
+        ),
         category="boundaries",
         collect_fn=_collect_williams_treaty_reserves,
         output_path=Path("data/processed/communities/williams_treaty_reserves.geojson"),

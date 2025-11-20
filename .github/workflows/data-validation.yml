@@ -4,15 +4,15 @@ on:
   push:
     branches: [ main, claude/* ]
     paths:
-      - 'collect_all_data.py'
-      - 'generate_williams_treaty_data.py'
+      - 'collect_data.py'
+      - 'check_data_status.py'
       - 'test_all_clients.py'
       - 'ontario_data/**'
   pull_request:
     branches: [ main ]
     paths:
-      - 'collect_all_data.py'
-      - 'generate_williams_treaty_data.py'
+      - 'collect_data.py'
+      - 'check_data_status.py'
       - 'test_all_clients.py'
       - 'ontario_data/**'
 
@@ -38,8 +38,8 @@ jobs:
 
     - name: Validate scripts syntax
       run: |
-        python -m py_compile collect_all_data.py
-        python -m py_compile generate_williams_treaty_data.py
+        python -m py_compile collect_data.py
+        python -m py_compile check_data_status.py
         python -m py_compile test_all_clients.py
 
     - name: Check imports work
