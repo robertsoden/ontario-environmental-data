@@ -71,6 +71,9 @@ class INaturalistClient(BaseClient):
         all_observations = []
         page = 1
 
+        # iNaturalist API has a hard limit of 200 per page
+        actual_per_page = min(per_page, 200)
+
         params = {
             "swlat": bounds[0],
             "swlng": bounds[1],
@@ -79,7 +82,7 @@ class INaturalistClient(BaseClient):
             "quality_grade": quality_grade,
             "geo": "true",
             "photos": "true",
-            "per_page": min(per_page, 200),
+            "per_page": actual_per_page,
             "page": page,
         }
 
@@ -111,8 +114,8 @@ class INaturalistClient(BaseClient):
 
                         all_observations.extend(results)
 
-                        # Check if we've reached the end
-                        if len(results) < per_page:
+                        # Check if we've reached the end (fewer results than requested = last page)
+                        if len(results) < actual_per_page:
                             break
 
                         page += 1

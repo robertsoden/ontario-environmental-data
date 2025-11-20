@@ -62,9 +62,14 @@ site/
 *.csv
 *.json
 *.geojson
+
+# Exceptions: Keep specific required files
 !data/processed/boundaries/williams_treaty.geojson
 !examples/data/
 !satellite_data_registry.json
+!data/raw/water_advisories_historical.csv
+!data/raw/CWB_2021.csv
+
 data/
 data_status.json
 
