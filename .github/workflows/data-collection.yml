@@ -14,67 +14,26 @@ name: Data Collection
 on:
   workflow_dispatch:
     inputs:
-      # Mode selection
       mode:
-        description: '🎯 Mode: Check status OR Collect data'
+        description: '🎯 Mode'
         required: true
         type: choice
         options:
           - status-only
-          - collect
+          - collect-all
+          - collect-selected
         default: status-only
-      # Data source selection
-      williams_treaty_communities:
-        description: '☐ Williams Treaty Communities (community points)'
-        type: boolean
-        default: false
-      williams_treaty_boundaries:
-        description: '☐ Williams Treaty Boundaries (territory polygon) [✓ EXISTS]'
-        type: boolean
-        default: false
-      water_advisories:
-        description: '☐ Water Advisories (Indigenous communities - requires CSV)'
-        type: boolean
-        default: false
-      fire_perimeters:
-        description: '☐ Fire Perimeters (historical 1976-2024)'
-        type: boolean
-        default: false
-      provincial_parks:
-        description: '☐ Provincial Parks (Ontario parks)'
-        type: boolean
-        default: false
-      conservation_authorities:
-        description: '☐ Conservation Authorities (CA boundaries)'
-        type: boolean
-        default: false
-      inaturalist:
-        description: '☐ iNaturalist (biodiversity observations - 10K max)'
-        type: boolean
-        default: false
-      ebird:
-        description: '☐ eBird (bird observations - requires API key)'
-        type: boolean
-        default: false
-      community_wellbeing:
-        description: '☐ Community Well-Being Index (First Nations - requires CSV)'
-        type: boolean
-        default: false
-      watersheds:
-        description: '☐ Watersheds (Great Lakes watershed boundaries)'
-        type: boolean
-        default: false
-      satellite:
-        description: '☐ Satellite Data (NDVI, land cover info)'
-        type: boolean
-        default: false
-      # Options
+      datasets:
+        description: '📋 Datasets (comma-separated IDs, e.g., "inaturalist,ebird,fire_perimeters")'
+        type: string
+        required: false
+        default: ''
       upload_artifacts:
-        description: '📦 Upload generated data as artifacts (30 days)'
+        description: '📦 Upload artifacts'
         type: boolean
         default: true
       force_refresh:
-        description: '🔄 Force refresh (re-download existing data)'
+        description: '🔄 Force refresh'
         type: boolean
         default: false
 
@@ -133,28 +92,11 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    - name: Validate data source selection
+    - name: Show collection mode
       run: |
-        # Check if at least one data source is selected
-        selected_count=0
-        [ "${{ github.event.inputs.williams_treaty_communities }}" == "true" ] && selected_count=$((selected_count + 1))
-        [ "${{ github.event.inputs.williams_treaty_boundaries }}" == "true" ] && selected_count=$((selected_count + 1))
-        [ "${{ github.event.inputs.water_advisories }}" == "true" ] && selected_count=$((selected_count + 1))
-        [ "${{ github.event.inputs.fire_perimeters }}" == "true" ] && selected_count=$((selected_count + 1))
-        [ "${{ github.event.inputs.provincial_parks }}" == "true" ] && selected_count=$((selected_count + 1))
-        [ "${{ github.event.inputs.conservation_authorities }}" == "true" ] && selected_count=$((selected_count + 1))
-        [ "${{ github.event.inputs.inaturalist }}" == "true" ] && selected_count=$((selected_count + 1))
-        [ "${{ github.event.inputs.ebird }}" == "true" ] && selected_count=$((selected_count + 1))
-        [ "${{ github.event.inputs.community_wellbeing }}" == "true" ] && selected_count=$((selected_count + 1))
-        [ "${{ github.event.inputs.watersheds }}" == "true" ] && selected_count=$((selected_count + 1))
-        [ "${{ github.event.inputs.satellite }}" == "true" ] && selected_count=$((selected_count + 1))
-
-        echo "Selected data sources: $selected_count"
-
-        if [ $selected_count -eq 0 ]; then
-          echo "::warning::No data sources selected! Using collect_all_data.py which will collect all available sources."
-        else
-          echo "✓ $selected_count data source(s) selected for collection"
+        echo "Collection mode: ${{ github.event.inputs.mode }}"
+        if [ "${{ github.event.inputs.mode }}" == "collect-selected" ]; then
+          echo "Selected datasets: ${{ github.event.inputs.datasets }}"
         fi
 
     - name: Set up Python
@@ -210,24 +152,37 @@ jobs:
         echo "RUNNING DATA COLLECTION"
         echo "=========================================="
         echo ""
+        echo "Mode: ${{ github.event.inputs.mode }}"
 
-        # Run the data collection script
-        # Only collects sources where checkboxes are checked
-        # If NO checkboxes are checked, nothing will be collected
+        if [ "${{ github.event.inputs.mode }}" == "collect-all" ]; then
+          echo "Collecting ALL enabled datasets from registry"
+          # Set all enabled datasets to true
+          python3 -c "
+from ontario_data.datasets import get_enabled_datasets
+import os
+for dataset in get_enabled_datasets():
+    env_var = f'COLLECT_{dataset.id.upper()}'
+    print(f'export {env_var}=true')
+" > /tmp/env_vars.sh
+          source /tmp/env_vars.sh
+
+        elif [ "${{ github.event.inputs.mode }}" == "collect-selected" ]; then
+          echo "Collecting selected datasets: ${{ github.event.inputs.datasets }}"
+          # Parse comma-separated list and set env vars
+          IFS=',' read -ra DATASETS <<< "${{ github.event.inputs.datasets }}"
+          for dataset_id in "${DATASETS[@]}"; do
+            dataset_id=$(echo "$dataset_id" | xargs)  # trim whitespace
+            if [ ! -z "$dataset_id" ]; then
+              env_var="COLLECT_${dataset_id^^}"
+              export "$env_var=true"
+              echo "  - $dataset_id ($env_var=true)"
+            fi
+          done
+        fi
+
         python3 collect_data.py
       env:
         EBIRD_API_KEY: ${{ secrets.EBIRD_API_KEY }}
-        COLLECT_WILLIAMS_TREATY_COMMUNITIES: ${{ github.event.inputs.williams_treaty_communities }}
-        COLLECT_WILLIAMS_TREATY_BOUNDARIES: ${{ github.event.inputs.williams_treaty_boundaries }}
-        COLLECT_WATER_ADVISORIES: ${{ github.event.inputs.water_advisories }}
-        COLLECT_FIRE_PERIMETERS: ${{ github.event.inputs.fire_perimeters }}
-        COLLECT_PROVINCIAL_PARKS: ${{ github.event.inputs.provincial_parks }}
-        COLLECT_CONSERVATION_AUTHORITIES: ${{ github.event.inputs.conservation_authorities }}
-        COLLECT_INATURALIST: ${{ github.event.inputs.inaturalist }}
-        COLLECT_EBIRD: ${{ github.event.inputs.ebird }}
-        COLLECT_COMMUNITY_WELLBEING: ${{ github.event.inputs.community_wellbeing }}
-        COLLECT_WATERSHEDS: ${{ github.event.inputs.watersheds }}
-        COLLECT_SATELLITE: ${{ github.event.inputs.satellite }}
 
 
     - name: Check after status
