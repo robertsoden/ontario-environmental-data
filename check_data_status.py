@@ -134,11 +134,13 @@ def check_data_status():
                 modified = datetime.fromtimestamp(path.stat().st_mtime)
 
                 # Perform validation
-                validation_success, validation_errors, validation_warnings = validate_data_file(
-                    path,
-                    info["data_type"],
-                    info.get("min_records", 1),
-                    info.get("required_fields"),
+                validation_success, validation_errors, validation_warnings = (
+                    validate_data_file(
+                        path,
+                        info["data_type"],
+                        info.get("min_records", 1),
+                        info.get("required_fields"),
+                    )
                 )
 
                 file_info = {
@@ -191,11 +193,17 @@ def check_data_status():
                 print(f"  ✗ {name:30} {'MISSING':>10}{critical_marker}")
 
                 if is_critical:
-                    status["validation_errors"].append(f"{name}: MISSING (critical data source)")
+                    status["validation_errors"].append(
+                        f"{name}: MISSING (critical data source)"
+                    )
 
     print("\n" + "=" * 80)
-    print(f"SUMMARY: {len(status['available'])} available, {len(status['missing'])} missing")
-    print(f"Validation: {len(status['validation_errors'])} errors, {len(status['validation_warnings'])} warnings")
+    print(
+        f"SUMMARY: {len(status['available'])} available, {len(status['missing'])} missing"
+    )
+    print(
+        f"Validation: {len(status['validation_errors'])} errors, {len(status['validation_warnings'])} warnings"
+    )
     print("=" * 80)
 
     # Detailed validation summary
@@ -321,15 +329,14 @@ if __name__ == "__main__":
     # Determine exit code
     # Critical errors: missing critical files or validation errors in critical files
     has_critical_errors = any(
-        item["critical"] and (
-            not item.get("validation_success", False) or
-            item.get("name") in [e.split(":")[0] for e in status["validation_errors"]]
+        item["critical"]
+        and (
+            not item.get("validation_success", False)
+            or item.get("name")
+            in [e.split(":")[0] for e in status["validation_errors"]]
         )
         for item in status["available"]
-    ) or any(
-        item["critical"]
-        for item in status["missing"]
-    )
+    ) or any(item["critical"] for item in status["missing"])
 
     # Any validation errors (including missing critical files)
     has_any_errors = len(status["validation_errors"]) > 0 or len(status["missing"]) > 0
