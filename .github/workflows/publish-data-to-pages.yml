@@ -37,9 +37,9 @@ jobs:
         with:
           script: |
             const artifacts = await github.rest.actions.listWorkflowRunArtifacts({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              run_id: context.payload.workflow_run.id,
+               owner: context.repo.owner,
+               repo: context.repo.repo,
+               run_id: context.payload.workflow_run.id,
             });
 
             if (artifacts.data.artifacts.length === 0) {
@@ -47,50 +47,56 @@ jobs:
               return;
             }
 
-            // Download the most recent data artifact
-            const dataArtifact = artifacts.data.artifacts.find(artifact =>
-              artifact.name.startsWith('ontario-data-')
-            );
+            const matchArtifact = artifacts.data.artifacts.filter((artifact) => {
+              return artifact.name.startsWith("ontario-data-")
+            })[0];
 
-            if (!dataArtifact) {
+            if (!matchArtifact) {
               core.setFailed('No ontario-data artifact found');
               return;
             }
 
-            console.log(`Downloading artifact: ${dataArtifact.name}`);
-
             const download = await github.rest.actions.downloadArtifact({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              artifact_id: dataArtifact.id,
-              archive_format: 'zip',
+               owner: context.repo.owner,
+               repo: context.repo.repo,
+               artifact_id: matchArtifact.id,
+               archive_format: 'zip',
             });
 
             const fs = require('fs');
-            fs.writeFileSync('artifact.zip', Buffer.from(download.data));
+            fs.writeFileSync('${{github.workspace}}/artifact.zip', Buffer.from(download.data));
 
-      - name: Extract artifacts
+      - name: Extract artifact
         if: github.event_name == 'workflow_run'
         run: |
-          if [ -f artifact.zip ]; then
-            echo "Extracting artifact.zip..."
-            unzip -o artifact.zip -d data/processed/
-            echo "Artifact contents:"
-            find data/processed -type f
-          else
-            echo "No artifact.zip found - using existing data"
-          fi
+          unzip -o artifact.zip -d data/
+          ls -la data/
+          echo "Extracted artifact contents:"
+          find data -type f
 
       - name: Verify data exists
         run: |
           echo "Checking for data files..."
-          if [ ! -d "data" ] || [ -z "$(find data -type f)" ]; then
-            echo "ERROR: No data files found to publish!"
-            echo "Please run the Data Collection workflow first or ensure data exists in the repository."
-            exit 1
+          if [ ! -d "data" ]; then
+            mkdir -p data/processed
+            echo "Created data directory structure"
           fi
-          echo "Found data files:"
-          find data -type f | head -20
+
+          # Count data files
+          data_file_count=$(find data -type f -name "*.geojson" -o -name "*.json" -o -name "*.csv" | wc -l)
+
+          if [ "$data_file_count" -eq 0 ]; then
+            echo "⚠️  No data files found to publish"
+            if [ "${{ github.event_name }}" == "workflow_run" ]; then
+              echo "ERROR: Data Collection workflow completed but no artifacts were downloaded"
+              exit 1
+            else
+              echo "WARNING: Manual trigger without data files - will create empty catalog"
+            fi
+          else
+            echo "✅ Found $data_file_count data files:"
+            find data -type f \( -name "*.geojson" -o -name "*.json" -o -name "*.csv" \) | head -20
+          fi
 
       - name: Setup Pages
         uses: actions/configure-pages@v4

@@ -244,31 +244,14 @@ jobs:
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "**Run:** #${{ github.run_number }}" >> $GITHUB_STEP_SUMMARY
         echo "**Status:** ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
-        echo "**Force Refresh:** ${{ github.event.inputs.force_refresh }}" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
 
-        echo "### Selected Data Sources" >> $GITHUB_STEP_SUMMARY
+        echo "### Collection Mode" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
-        echo "| Data Source | Selected |" >> $GITHUB_STEP_SUMMARY
-        echo "|-------------|----------|" >> $GITHUB_STEP_SUMMARY
-        echo "| Williams Treaty Communities | ${{ github.event.inputs.williams_treaty_communities == 'true' && '✅' || '⬜' }} |" >> $GITHUB_STEP_SUMMARY
-        echo "| Williams Treaty Boundaries | ${{ github.event.inputs.williams_treaty_boundaries == 'true' && '✅' || '⬜' }} |" >> $GITHUB_STEP_SUMMARY
-        echo "| Water Advisories | ${{ github.event.inputs.water_advisories == 'true' && '✅' || '⬜' }} |" >> $GITHUB_STEP_SUMMARY
-        echo "| Fire Perimeters | ${{ github.event.inputs.fire_perimeters == 'true' && '✅' || '⬜' }} |" >> $GITHUB_STEP_SUMMARY
-        echo "| Provincial Parks | ${{ github.event.inputs.provincial_parks == 'true' && '✅' || '⬜' }} |" >> $GITHUB_STEP_SUMMARY
-        echo "| Conservation Authorities | ${{ github.event.inputs.conservation_authorities == 'true' && '✅' || '⬜' }} |" >> $GITHUB_STEP_SUMMARY
-        echo "| iNaturalist | ${{ github.event.inputs.inaturalist == 'true' && '✅' || '⬜' }} |" >> $GITHUB_STEP_SUMMARY
-        echo "| eBird | ${{ github.event.inputs.ebird == 'true' && '✅' || '⬜' }} |" >> $GITHUB_STEP_SUMMARY
-        echo "| Community Well-Being | ${{ github.event.inputs.community_wellbeing == 'true' && '✅' || '⬜' }} |" >> $GITHUB_STEP_SUMMARY
-        echo "| Watersheds | ${{ github.event.inputs.watersheds == 'true' && '✅' || '⬜' }} |" >> $GITHUB_STEP_SUMMARY
-        echo "| Satellite Data | ${{ github.event.inputs.satellite == 'true' && '✅' || '⬜' }} |" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-
-        echo "### Collection Report" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "Data collection script (collect_data.py) was executed." >> $GITHUB_STEP_SUMMARY
-        echo "Selected datasets were collected from the registry." >> $GITHUB_STEP_SUMMARY
-        echo "See collection_report.json for detailed results." >> $GITHUB_STEP_SUMMARY
+        echo "**Mode:** ${{ github.event.inputs.mode }}" >> $GITHUB_STEP_SUMMARY
+        if [ "${{ github.event.inputs.mode }}" == "collect-selected" ]; then
+          echo "**Selected datasets:** ${{ github.event.inputs.datasets }}" >> $GITHUB_STEP_SUMMARY
+        fi
         echo "" >> $GITHUB_STEP_SUMMARY
 
         if [ -f "data/processed/collection_report.json" ]; then
