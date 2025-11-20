@@ -151,22 +151,16 @@ def check_data_status():
 
                 # Print status with validation results
                 if validation_success and not validation_warnings:
-                    print(
-                        f"  ✅ {name:30} {format_size(size):>10}  (valid)"
-                    )
+                    print(f"  ✅ {name:30} {format_size(size):>10}  (valid)")
                 elif validation_success and validation_warnings:
-                    print(
-                        f"  ⚠️  {name:30} {format_size(size):>10}  (warnings)"
-                    )
+                    print(f"  ⚠️  {name:30} {format_size(size):>10}  (warnings)")
                     for warning in validation_warnings[:2]:  # Show first 2 warnings
                         print(f"      └─ {warning}")
                     status["validation_warnings"].extend(
                         [f"{name}: {w}" for w in validation_warnings]
                     )
                 else:
-                    print(
-                        f"  ❌ {name:30} {format_size(size):>10}  (INVALID)"
-                    )
+                    print(f"  ❌ {name:30} {format_size(size):>10}  (INVALID)")
                     for error in validation_errors[:2]:  # Show first 2 errors
                         print(f"      └─ {error}")
                     status["validation_errors"].extend(
