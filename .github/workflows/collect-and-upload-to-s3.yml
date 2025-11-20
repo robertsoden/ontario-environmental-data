@@ -242,94 +242,47 @@ jobs:
             "datasets": {}
         }
 
-        # Get list of all GeoJSON files in S3
-        print("Querying S3 for datasets...")
-        result = subprocess.run(
-            ["aws", "s3", "ls", f"s3://{bucket}/${{ env.S3_BASE_PATH }}/", "--recursive"],
-            capture_output=True,
-            text=True
-        )
-
-        if result.returncode != 0:
-            print(f"Error listing S3 files: {result.stderr}")
-            exit(1)
-
-        # Parse S3 listing
-        s3_files = {}
-        for line in result.stdout.strip().split('\n'):
-            if not line or not line.endswith('.geojson'):
-                continue
-
-            parts = line.split()
-            if len(parts) < 4:
-                continue
-
-            # Format: date time size path
-            size_bytes = int(parts[2])
-            s3_path = parts[3]
-
-            # Extract category and filename from path
-            # Path format: datasets/category/filename.geojson
-            path_parts = s3_path.split('/')
-            if len(path_parts) >= 3 and path_parts[0] == "${{ env.S3_BASE_PATH }}":
-                category = path_parts[1]
-                filename = path_parts[2]
-
-                s3_files[filename] = {
-                    "category": category,
-                    "size_bytes": size_bytes,
-                    "s3_path": s3_path
-                }
-
-        print(f"Found {len(s3_files)} files in S3")
-
-        # Match S3 files to dataset registry
+        # Build catalog from dataset registry, verifying each file exists in S3
         for dataset_id, dataset in DATASETS.items():
             if not dataset.enabled:
+                print(f"Skipping disabled dataset: {dataset_id}")
                 continue
 
-            if not dataset.output_path:
+            # Determine S3 path to check
+            if dataset.is_static and dataset.s3_url:
+                # For static datasets, extract S3 path from the s3_url
+                s3_url = dataset.s3_url
+                # Extract path after bucket URL
+                s3_path = s3_url.replace(f"{base_url}/", "")
+            elif dataset.output_path:
+                # For dynamic datasets, construct S3 path from output_path
+                filename = dataset.output_path.name
+                s3_path = f"${{ env.S3_BASE_PATH }}/{dataset.category}/{filename}"
+                s3_url = f"{base_url}/{s3_path}"
+            else:
+                print(f"Skipping dataset without s3_url or output_path: {dataset_id}")
                 continue
 
-            filename = dataset.output_path.name
+            # Verify file exists in S3
+            check_result = subprocess.run(
+                ["aws", "s3", "ls", f"s3://{bucket}/{s3_path}"],
+                capture_output=True,
+                text=True
+            )
 
-            if filename in s3_files:
-                file_info = s3_files[filename]
-                category = file_info["category"]
-                size_mb = round(file_info["size_bytes"] / 1024 / 1024, 2)
+            if check_result.returncode != 0:
+                print(f"⚠️  Dataset {dataset_id} not found in S3: s3://{bucket}/{s3_path}")
+                continue
 
-                # Try to download and get feature count (only for small files)
-                count = 0
-                if size_mb < 50:  # Only download files smaller than 50MB
-                    try:
-                        # Download file temporarily
-                        temp_file = Path(f"/tmp/{filename}")
-                        subprocess.run(
-                            ["aws", "s3", "cp", f"s3://{bucket}/{file_info['s3_path']}", str(temp_file)],
-                            check=True,
-                            capture_output=True
-                        )
-
-                        # Read feature count
-                        with open(temp_file) as f:
-                            data = json.load(f)
-                            count = len(data.get("features", []))
-
-                        temp_file.unlink()
-                    except Exception as e:
-                        print(f"Could not get feature count for {filename}: {e}")
-
-                s3_url = f"{base_url}/${{ env.S3_BASE_PATH }}/{category}/{filename}"
-
-                catalog["datasets"][dataset_id] = {
-                    "id": dataset_id,
-                    "url": s3_url,
-                    "category": category,
-                    "format": "geojson",
-                    "size_mb": size_mb,
-                    "count": count,
-                    "last_updated": datetime.utcnow().isoformat() + "Z"
-                }
+            # File exists, add to catalog
+            catalog["datasets"][dataset_id] = {
+                "id": dataset_id,
+                "url": s3_url,
+                "category": dataset.category,
+                "format": dataset.output_format,
+                "last_updated": datetime.utcnow().isoformat() + "Z"
+            }
+            print(f"✅ Added dataset: {dataset_id} -> {s3_url}")
 
         # Write catalog
         catalog_path = Path("data/catalog.json")
