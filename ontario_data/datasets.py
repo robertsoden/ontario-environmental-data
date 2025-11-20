@@ -624,6 +624,7 @@ DATASETS: Dict[str, DatasetDefinition] = {
         output_format="geojson",
         min_records=1,
         required_fields=["PRNAME"],
+        enabled=True,  # Available as static dataset
     ),
 
     "ontario_municipalities": DatasetDefinition(
