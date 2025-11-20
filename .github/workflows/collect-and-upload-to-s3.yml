@@ -126,7 +126,7 @@ jobs:
           echo "Uploading boundaries..."
           aws s3 sync data/processed/boundaries/ \
             s3://${{ env.S3_BUCKET }}/${{ env.S3_BASE_PATH }}/boundaries/ \
-            --acl public-read \
+            \
             --cache-control "public, max-age=3600" \
             --content-type "application/geo+json" \
             --exclude "*" --include "*.geojson"
@@ -137,7 +137,7 @@ jobs:
           echo "Uploading communities..."
           aws s3 sync data/processed/communities/ \
             s3://${{ env.S3_BUCKET }}/${{ env.S3_BASE_PATH }}/communities/ \
-            --acl public-read \
+            \
             --cache-control "public, max-age=3600" \
             --content-type "application/geo+json" \
             --exclude "*" --include "*.geojson"
@@ -148,7 +148,7 @@ jobs:
           echo "Uploading community well-being data..."
           aws s3 sync data/processed/cwb/ \
             s3://${{ env.S3_BUCKET }}/${{ env.S3_BASE_PATH }}/community/ \
-            --acl public-read \
+            \
             --cache-control "public, max-age=3600" \
             --content-type "application/geo+json" \
             --exclude "*" --include "*.geojson"
@@ -159,7 +159,7 @@ jobs:
           echo "Uploading protected areas..."
           aws s3 sync data/processed/protected_areas/ \
             s3://${{ env.S3_BUCKET }}/${{ env.S3_BASE_PATH }}/protected_areas/ \
-            --acl public-read \
+            \
             --cache-control "public, max-age=3600" \
             --content-type "application/geo+json" \
             --exclude "*" --include "*.geojson"
@@ -170,7 +170,7 @@ jobs:
           echo "Uploading biodiversity data..."
           aws s3 sync data/processed/biodiversity/ \
             s3://${{ env.S3_BUCKET }}/${{ env.S3_BASE_PATH }}/biodiversity/ \
-            --acl public-read \
+            \
             --cache-control "public, max-age=86400" \
             --content-type "application/geo+json" \
             --exclude "*" --include "*.geojson"
@@ -184,7 +184,7 @@ jobs:
             echo "Uploading $filename to environmental..."
             aws s3 cp "$file" \
               s3://${{ env.S3_BUCKET }}/${{ env.S3_BASE_PATH }}/environmental/$filename \
-              --acl public-read \
+              \
               --cache-control "public, max-age=3600" \
               --content-type "application/geo+json"
           fi
@@ -195,7 +195,7 @@ jobs:
           echo "Uploading collection report..."
           aws s3 cp data/processed/collection_report.json \
             s3://${{ env.S3_BUCKET }}/metadata/collection_report.json \
-            --acl public-read \
+            \
             --cache-control "public, max-age=300" \
             --content-type "application/json"
         fi
@@ -294,7 +294,7 @@ jobs:
         echo "Uploading catalog to S3..."
         aws s3 cp data/catalog.json \
           s3://${{ env.S3_BUCKET }}/catalog.json \
-          --acl public-read \
+          \
           --cache-control "public, max-age=300" \
           --content-type "application/json"
 
