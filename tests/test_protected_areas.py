@@ -177,7 +177,7 @@ class TestOntarioGeoHubClient:
 
     @pytest.mark.asyncio
     async def test_get_provincial_parks_http_error(self):
-        """Test handling of HTTP errors - should return empty GeoDataFrame."""
+        """Test handling of HTTP errors - should raise DataSourceError."""
         client = OntarioGeoHubClient()
 
         mock_response = AsyncMock()
@@ -193,11 +193,9 @@ class TestOntarioGeoHubClient:
             mock_session_instance = mock_session.return_value.__aenter__.return_value
             mock_session_instance.get = MagicMock(return_value=mock_get_context)
 
-            # Should return empty GeoDataFrame instead of raising error (graceful degradation)
-            result = await client.get_provincial_parks()
-            assert isinstance(result, gpd.GeoDataFrame)
-            assert len(result) == 0
-            assert result.crs == "EPSG:4326"
+            # Should raise DataSourceError on HTTP error
+            with pytest.raises(DataSourceError):
+                await client.get_provincial_parks()
 
     @pytest.mark.asyncio
     async def test_get_conservation_authorities_success(
