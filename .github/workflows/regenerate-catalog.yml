@@ -172,7 +172,8 @@ jobs:
         print("\nDatasets in catalog:")
         for dataset_id in sorted(catalog["datasets"].keys()):
             info = catalog["datasets"][dataset_id]
-            print(f"  - {dataset_id}: {info['count']} features, {info['size_mb']} MB")
+            count_str = info.get('count', info.get('count_note', 'unknown'))
+            print(f"  - {dataset_id}: {count_str} features, {info['size_mb']} MB")
         CATALOG_PY
 
     - name: Upload catalog to S3
