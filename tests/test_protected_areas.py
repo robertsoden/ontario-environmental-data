@@ -6,7 +6,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import geopandas as gpd
 import pytest
 
-from ontario_data.sources.base import DataSourceError
 from ontario_data.sources.protected_areas import OntarioGeoHubClient
 
 
@@ -178,7 +177,7 @@ class TestOntarioGeoHubClient:
 
     @pytest.mark.asyncio
     async def test_get_provincial_parks_http_error(self):
-        """Test handling of HTTP errors."""
+        """Test handling of HTTP errors - should return empty GeoDataFrame."""
         client = OntarioGeoHubClient()
 
         mock_response = AsyncMock()
@@ -194,8 +193,11 @@ class TestOntarioGeoHubClient:
             mock_session_instance = mock_session.return_value.__aenter__.return_value
             mock_session_instance.get = MagicMock(return_value=mock_get_context)
 
-            with pytest.raises(DataSourceError):
-                await client.get_provincial_parks()
+            # Should return empty GeoDataFrame instead of raising error (graceful degradation)
+            result = await client.get_provincial_parks()
+            assert isinstance(result, gpd.GeoDataFrame)
+            assert len(result) == 0
+            assert result.crs == "EPSG:4326"
 
     @pytest.mark.asyncio
     async def test_get_conservation_authorities_success(
