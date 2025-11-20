@@ -67,12 +67,24 @@ def setup_directories():
 
 
 def download_ontario_boundary():
-    """Download Ontario boundary from S3."""
-    logger.info("Downloading Ontario boundary...")
+    """Download Ontario boundary from S3 or use local copy."""
+    logger.info("Setting up Ontario boundary...")
+
+    # First try to use local copy from /tmp if available
+    local_copy = Path("/tmp/ontario_boundary.geojson")
+    if local_copy.exists():
+        logger.info(f"Using local boundary file from {local_copy}")
+        subprocess.run(["cp", str(local_copy), str(ONTARIO_BOUNDARY)], check=True)
+        logger.info(f"Ontario boundary copied to {ONTARIO_BOUNDARY}")
+        return
+
+    # Otherwise download from S3
+    logger.info("Downloading Ontario boundary from S3...")
     cmd = [
         "aws", "s3", "cp",
         f"s3://{S3_BUCKET}/datasets/boundaries/ontario_boundary.geojson",
-        str(ONTARIO_BOUNDARY)
+        str(ONTARIO_BOUNDARY),
+        "--no-sign-request"  # Allow public access without credentials
     ]
     subprocess.run(cmd, check=True)
     logger.info(f"Ontario boundary saved to {ONTARIO_BOUNDARY}")
@@ -234,8 +246,12 @@ def upload_to_s3(file_path: Path, s3_key: str):
         "--metadata", f"source=nrcan,processed=ontario_clipped"
     ]
 
-    subprocess.run(cmd, check=True)
-    logger.info(f"Uploaded to s3://{S3_BUCKET}/{s3_key}")
+    try:
+        subprocess.run(cmd, check=True)
+        logger.info(f"Uploaded to s3://{S3_BUCKET}/{s3_key}")
+    except subprocess.CalledProcessError as e:
+        logger.warning(f"S3 upload failed (may need IAM role configured): {e}")
+        logger.info(f"Processed file saved locally at: {file_path}")
 
 
 def main():
