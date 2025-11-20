@@ -6,6 +6,10 @@ name: Regenerate Catalog from S3
 on:
   workflow_dispatch:
 
+permissions:
+  contents: read
+  actions: write  # Required to trigger other workflows
+
 env:
   S3_BUCKET: ontario-environmental-data
   S3_REGION: us-east-1
