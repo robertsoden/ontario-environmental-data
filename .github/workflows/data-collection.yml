@@ -23,17 +23,36 @@ on:
           - collect-all
           - collect-selected
         default: status-only
-      datasets:
-        description: '📋 Datasets (comma-separated IDs, e.g., "inaturalist,ebird,fire_perimeters")'
-        type: string
-        required: false
-        default: ''
-      upload_artifacts:
-        description: '📦 Upload artifacts'
+      williams_treaty_communities:
+        description: '☑️ Williams Treaty Communities'
         type: boolean
-        default: true
-      force_refresh:
-        description: '🔄 Force refresh'
+        default: false
+      ontario_reserves:
+        description: '☑️ Ontario Reserves'
+        type: boolean
+        default: false
+      williams_treaty_reserves:
+        description: '☑️ Williams Treaty Reserves'
+        type: boolean
+        default: false
+      conservation_authorities:
+        description: '☑️ Conservation Authorities'
+        type: boolean
+        default: false
+      inaturalist:
+        description: '☑️ iNaturalist'
+        type: boolean
+        default: false
+      ebird:
+        description: '☑️ eBird'
+        type: boolean
+        default: false
+      community_wellbeing:
+        description: '☑️ Community Well-Being'
+        type: boolean
+        default: false
+      fire_perimeters:
+        description: '☑️ Fire Perimeters'
         type: boolean
         default: false
 
@@ -166,16 +185,17 @@ jobs:
         PYTHON_EOF
 
         elif [ "${{ github.event.inputs.mode }}" == "collect-selected" ]; then
-          echo "Setting up to collect selected datasets: ${{ github.event.inputs.datasets }}"
-          IFS=',' read -ra DATASETS <<< "${{ github.event.inputs.datasets }}"
-          for dataset_id in "${DATASETS[@]}"; do
-            dataset_id=$(echo "$dataset_id" | xargs)
-            if [ ! -z "$dataset_id" ]; then
-              env_var="COLLECT_${dataset_id^^}"
-              echo "${env_var}=true" >> $GITHUB_ENV
-              echo "  ✓ ${env_var}=true"
-            fi
-          done
+          echo "Setting up to collect selected datasets from checkboxes"
+
+          # Check each dataset checkbox and set env var if checked
+          [ "${{ github.event.inputs.williams_treaty_communities }}" == "true" ] && echo "COLLECT_WILLIAMS_TREATY_COMMUNITIES=true" >> $GITHUB_ENV && echo "  ✓ williams_treaty_communities"
+          [ "${{ github.event.inputs.ontario_reserves }}" == "true" ] && echo "COLLECT_ONTARIO_RESERVES=true" >> $GITHUB_ENV && echo "  ✓ ontario_reserves"
+          [ "${{ github.event.inputs.williams_treaty_reserves }}" == "true" ] && echo "COLLECT_WILLIAMS_TREATY_RESERVES=true" >> $GITHUB_ENV && echo "  ✓ williams_treaty_reserves"
+          [ "${{ github.event.inputs.conservation_authorities }}" == "true" ] && echo "COLLECT_CONSERVATION_AUTHORITIES=true" >> $GITHUB_ENV && echo "  ✓ conservation_authorities"
+          [ "${{ github.event.inputs.inaturalist }}" == "true" ] && echo "COLLECT_INATURALIST=true" >> $GITHUB_ENV && echo "  ✓ inaturalist"
+          [ "${{ github.event.inputs.ebird }}" == "true" ] && echo "COLLECT_EBIRD=true" >> $GITHUB_ENV && echo "  ✓ ebird"
+          [ "${{ github.event.inputs.community_wellbeing }}" == "true" ] && echo "COLLECT_COMMUNITY_WELLBEING=true" >> $GITHUB_ENV && echo "  ✓ community_wellbeing"
+          [ "${{ github.event.inputs.fire_perimeters }}" == "true" ] && echo "COLLECT_FIRE_PERIMETERS=true" >> $GITHUB_ENV && echo "  ✓ fire_perimeters"
         fi
 
     - name: Run data collection
