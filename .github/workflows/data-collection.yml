@@ -359,6 +359,12 @@ jobs:
           data/processed/**/*.json
           data/processed/**/*.csv
           data/processed/collection_report.json
+          data/raw/**/*.shp
+          data/raw/**/*.shx
+          data/raw/**/*.dbf
+          data/raw/**/*.prj
+          data/raw/**/*.cpg
+          data/raw/**/*.csv
           data_status.json
         retention-days: 30
         if-no-files-found: warn
