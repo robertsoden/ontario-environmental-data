@@ -97,8 +97,7 @@ jobs:
 
       - name: Create index.html for data directory
         run: |
-          # Create a simple index.html that lists available data
-          cat > data/index.html << 'EOF'
+          cat > data/index.html << 'HTMLEOF'
           <!DOCTYPE html>
           <html>
           <head>
@@ -114,42 +113,22 @@ jobs:
               <h1>Ontario Environmental Data</h1>
               <div class="info">
                   <p><strong>Open Environmental Data Repository for Ontario</strong></p>
-                  <p>This GitHub Pages site hosts processed environmental data files for Ontario, including treaty territories, parks, fire history, conservation areas, and biodiversity observations.</p>
+                  <p>This GitHub Pages site hosts processed environmental data files for Ontario.</p>
                   <p>Base URL: <code>https://robertsoden.github.io/ontario-environmental-data/</code></p>
               </div>
-
-              <h2>Available Data Directories</h2>
+              <h2>Data Catalog</h2>
               <ul>
-                  <li><a href="processed/">processed/</a> - Processed datasets ready for visualization</li>
-                  <li><a href="raw/">raw/</a> - Raw source data</li>
-                  <li><a href="processed/boundaries/">processed/boundaries/</a> - Boundary files</li>
+                  <li><a href="catalog.json">catalog.json</a> - List of available datasets</li>
+                  <li><a href="layers.json">layers.json</a> - MapLibre layer configuration</li>
               </ul>
-
-              <h2>Data Catalog & Configuration</h2>
-              <p>Use these files to integrate with the Williams Treaties map:</p>
-              <ul>
-                  <li><a href="catalog.json">catalog.json</a> - List of available and unavailable datasets</li>
-                  <li><a href="layers.json">layers.json</a> - MapLibre layer configuration (JSON)</li>
-                  <li><a href="layers.yaml">layers.yaml</a> - MapLibre layer configuration (YAML)</li>
-              </ul>
-
-              <h2>Usage</h2>
-              <p>Access data files directly via URL:</p>
-              <pre><code>https://robertsoden.github.io/ontario-environmental-data/processed/boundaries/williams_treaty.geojson</code></pre>
-
-              <p>Or fetch the catalog programmatically:</p>
-              <pre><code>fetch('https://robertsoden.io/ontario-environmental-data/catalog.json')
-  .then(r => r.json())
-  .then(data => console.log(data.available_layers))</code></pre>
-
               <h2>Related Projects</h2>
               <ul>
-                  <li><a href="https://github.com/robertsoden/ontario-environmental-data">ontario-environmental-data</a> - Data generation repository</li>
-                  <li><a href="https://github.com/robertsoden/williams-treaties">williams-treaties</a> - Interactive map visualization</li>
+                  <li><a href="https://github.com/robertsoden/ontario-environmental-data">ontario-environmental-data</a> - Data repository</li>
+                  <li><a href="https://github.com/robertsoden/williams-treaties">williams-treaties</a> - Map visualization</li>
               </ul>
           </body>
           </html>
-          EOF
+          HTMLEOF
 
       - name: Create directory structure
         run: |
