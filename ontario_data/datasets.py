@@ -642,6 +642,21 @@ DATASETS: Dict[str, DatasetDefinition] = {
         required_fields=["CSDNAME"],
     ),
 
+    "environmental_organizations": DatasetDefinition(
+        id="environmental_organizations",
+        name="Environmental Organizations",
+        description="Environmental charities and organizations in Ontario",
+        category="organizations",
+        is_static=True,
+        s3_url="https://ontario-environmental-data.s3.us-east-1.amazonaws.com/datasets/organizations/environmental_organizations.geojson",
+        local_path=Path("data/processed/charities/environmental_organizations.geojson"),
+        output_path=Path("data/processed/charities/environmental_organizations.geojson"),
+        output_format="geojson",
+        min_records=1,
+        required_fields=["name"],
+        enabled=True,
+    ),
+
     "watersheds": DatasetDefinition(
         id="watersheds",
         name="Watersheds",
