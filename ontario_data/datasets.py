@@ -683,6 +683,232 @@ DATASETS: Dict[str, DatasetDefinition] = {
         min_records=1,
         required_fields=["year"],
     ),
+
+    # =========================================================================
+    # NEW DATASETS - Added from Williams Treaty data pipeline
+    # =========================================================================
+
+    # Hydrology / Water
+    "wetlands": DatasetDefinition(
+        id="wetlands",
+        name="Wetlands",
+        description="Provincial wetlands with ecological significance ratings",
+        category="environmental",
+        is_static=True,
+        s3_url="https://ontario-environmental-data.s3.us-east-1.amazonaws.com/datasets/environmental/wetlands.geojson",
+        output_path=Path("data/datasets/environmental/wetlands.geojson"),
+        output_format="geojson",
+        min_records=1,
+    ),
+
+    "watercourses": DatasetDefinition(
+        id="watercourses",
+        name="Rivers & Streams",
+        description="Ontario Hydro Network - rivers and streams",
+        category="environmental",
+        is_static=True,
+        s3_url="https://ontario-environmental-data.s3.us-east-1.amazonaws.com/datasets/environmental/watercourses.geojson",
+        output_path=Path("data/datasets/environmental/watercourses.geojson"),
+        output_format="geojson",
+        min_records=1,
+    ),
+
+    "waterbodies": DatasetDefinition(
+        id="waterbodies",
+        name="Lakes & Ponds",
+        description="Ontario Hydro Network - lakes and ponds",
+        category="environmental",
+        is_static=True,
+        s3_url="https://ontario-environmental-data.s3.us-east-1.amazonaws.com/datasets/environmental/waterbodies.geojson",
+        output_path=Path("data/datasets/environmental/waterbodies.geojson"),
+        output_format="geojson",
+        min_records=1,
+    ),
+
+    "watersheds_tertiary": DatasetDefinition(
+        id="watersheds_tertiary",
+        name="Tertiary Watersheds",
+        description="Ontario Watershed Boundaries - Tertiary level drainage areas",
+        category="environmental",
+        is_static=True,
+        s3_url="https://ontario-environmental-data.s3.us-east-1.amazonaws.com/datasets/environmental/watersheds_tertiary.geojson",
+        output_path=Path("data/datasets/environmental/watersheds_tertiary.geojson"),
+        output_format="geojson",
+        min_records=1,
+    ),
+
+    "watersheds_quaternary": DatasetDefinition(
+        id="watersheds_quaternary",
+        name="Quaternary Watersheds",
+        description="Ontario Watershed Boundaries - Quaternary (smallest) drainage areas",
+        category="environmental",
+        is_static=True,
+        s3_url="https://ontario-environmental-data.s3.us-east-1.amazonaws.com/datasets/environmental/watersheds_quaternary.geojson",
+        output_path=Path("data/datasets/environmental/watersheds_quaternary.geojson"),
+        output_format="geojson",
+        min_records=1,
+    ),
+
+    "lake_simcoe_watershed": DatasetDefinition(
+        id="lake_simcoe_watershed",
+        name="Lake Simcoe Watershed",
+        description="Lake Simcoe Protection Act Watershed Boundary",
+        category="environmental",
+        is_static=True,
+        s3_url="https://ontario-environmental-data.s3.us-east-1.amazonaws.com/datasets/environmental/lake_simcoe_watershed.geojson",
+        output_path=Path("data/datasets/environmental/lake_simcoe_watershed.geojson"),
+        output_format="geojson",
+        min_records=1,
+    ),
+
+    "dams": DatasetDefinition(
+        id="dams",
+        name="Dams",
+        description="Ontario Dam Inventory",
+        category="environmental",
+        is_static=True,
+        s3_url="https://ontario-environmental-data.s3.us-east-1.amazonaws.com/datasets/environmental/dams.geojson",
+        output_path=Path("data/datasets/environmental/dams.geojson"),
+        output_format="geojson",
+        min_records=1,
+    ),
+
+    # Ecology / Protected Areas
+    "conservation_reserves": DatasetDefinition(
+        id="conservation_reserves",
+        name="Conservation Reserves",
+        description="Ontario Conservation Reserves - regulated protected areas",
+        category="protected_areas",
+        is_static=True,
+        s3_url="https://ontario-environmental-data.s3.us-east-1.amazonaws.com/datasets/protected_areas/conservation_reserves.geojson",
+        output_path=Path("data/datasets/protected_areas/conservation_reserves.geojson"),
+        output_format="geojson",
+        min_records=1,
+    ),
+
+    "federal_protected": DatasetDefinition(
+        id="federal_protected",
+        name="Federal Protected Areas",
+        description="Federal protected areas including National Parks and Wildlife Areas",
+        category="protected_areas",
+        is_static=True,
+        s3_url="https://ontario-environmental-data.s3.us-east-1.amazonaws.com/datasets/protected_areas/federal_protected.geojson",
+        output_path=Path("data/datasets/protected_areas/federal_protected.geojson"),
+        output_format="geojson",
+        min_records=1,
+    ),
+
+    "ecodistricts": DatasetDefinition(
+        id="ecodistricts",
+        name="Ecodistricts",
+        description="Ontario Ecodistricts - ecological classification units",
+        category="environmental",
+        is_static=True,
+        s3_url="https://ontario-environmental-data.s3.us-east-1.amazonaws.com/datasets/environmental/ecodistricts.geojson",
+        output_path=Path("data/datasets/environmental/ecodistricts.geojson"),
+        output_format="geojson",
+        min_records=1,
+    ),
+
+    "ecoregions": DatasetDefinition(
+        id="ecoregions",
+        name="Ecoregions",
+        description="Ontario Ecoregions - broad ecological classification zones",
+        category="environmental",
+        is_static=True,
+        s3_url="https://ontario-environmental-data.s3.us-east-1.amazonaws.com/datasets/environmental/ecoregions.geojson",
+        output_path=Path("data/datasets/environmental/ecoregions.geojson"),
+        output_format="geojson",
+        min_records=1,
+    ),
+
+    # Terrain
+    "contours": DatasetDefinition(
+        id="contours",
+        name="Contour Lines",
+        description="Topographic contour lines",
+        category="environmental",
+        is_static=True,
+        s3_url="https://ontario-environmental-data.s3.us-east-1.amazonaws.com/datasets/environmental/contours.geojson",
+        output_path=Path("data/datasets/environmental/contours.geojson"),
+        output_format="geojson",
+        min_records=1,
+    ),
+
+    # Recreation / Trails
+    "trails": DatasetDefinition(
+        id="trails",
+        name="Recreational Trails",
+        description="Ontario Recreational Trail Network",
+        category="infrastructure",
+        is_static=True,
+        s3_url="https://ontario-environmental-data.s3.us-east-1.amazonaws.com/datasets/infrastructure/trails.geojson",
+        output_path=Path("data/datasets/infrastructure/trails.geojson"),
+        output_format="geojson",
+        min_records=1,
+    ),
+
+    "trail_access_points": DatasetDefinition(
+        id="trail_access_points",
+        name="Trail Access Points",
+        description="Ontario Trail Network access points and trailheads",
+        category="infrastructure",
+        is_static=True,
+        s3_url="https://ontario-environmental-data.s3.us-east-1.amazonaws.com/datasets/infrastructure/trail_access_points.geojson",
+        output_path=Path("data/datasets/infrastructure/trail_access_points.geojson"),
+        output_format="geojson",
+        min_records=1,
+    ),
+
+    # Biodiversity
+    "ebird_observations": DatasetDefinition(
+        id="ebird_observations",
+        name="eBird Observations",
+        description="Recent bird observations from eBird",
+        category="biodiversity",
+        is_static=True,
+        s3_url="https://ontario-environmental-data.s3.us-east-1.amazonaws.com/datasets/biodiversity/ebird_observations.geojson",
+        output_path=Path("data/datasets/biodiversity/ebird_observations.geojson"),
+        output_format="geojson",
+        min_records=1,
+    ),
+
+    # Community / Infrastructure
+    "infrastructure_projects": DatasetDefinition(
+        id="infrastructure_projects",
+        name="Indigenous Infrastructure Projects",
+        description="Indigenous infrastructure projects from ISC ICIM database",
+        category="community",
+        is_static=True,
+        s3_url="https://ontario-environmental-data.s3.us-east-1.amazonaws.com/datasets/community/infrastructure_projects.geojson",
+        output_path=Path("data/datasets/community/infrastructure_projects.geojson"),
+        output_format="geojson",
+        min_records=1,
+    ),
+
+    "federal_infrastructure": DatasetDefinition(
+        id="federal_infrastructure",
+        name="Federal Infrastructure Projects",
+        description="Federal infrastructure projects (housing, transit, green infrastructure)",
+        category="community",
+        is_static=True,
+        s3_url="https://ontario-environmental-data.s3.us-east-1.amazonaws.com/datasets/community/federal_infrastructure.geojson",
+        output_path=Path("data/datasets/community/federal_infrastructure.geojson"),
+        output_format="geojson",
+        min_records=1,
+    ),
+
+    "water_advisories_data": DatasetDefinition(
+        id="water_advisories_data",
+        name="Water Advisories",
+        description="Drinking water advisories for First Nations communities",
+        category="community",
+        is_static=True,
+        s3_url="https://ontario-environmental-data.s3.us-east-1.amazonaws.com/datasets/community/water_advisories.geojson",
+        output_path=Path("data/datasets/community/water_advisories.geojson"),
+        output_format="geojson",
+        min_records=1,
+    ),
 }
 
 
