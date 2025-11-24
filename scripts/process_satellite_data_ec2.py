@@ -125,34 +125,29 @@ def clip_raster_to_boundary(
 ) -> Dict:
     """Clip a raster to Ontario boundaries using GDAL (memory-efficient).
 
-    Uses gdalwarp command-line tool which handles large files efficiently
-    with windowed reading instead of loading entire raster into memory.
+    Uses gdalwarp command-line tool with target extent (bounding box)
+    which handles large files efficiently with windowed reading.
 
     Args:
         input_raster: Path to input raster file
         output_raster: Path to output clipped raster
-        boundary_geojson: Path to boundary GeoJSON
+        boundary_geojson: Path to boundary GeoJSON (unused, kept for compatibility)
         compress: Compression method (LZW, DEFLATE, etc.)
 
     Returns:
         Dictionary with metadata about the clipped raster
     """
-    logger.info(f"Clipping {input_raster.name} to Ontario boundaries...")
+    logger.info(f"Clipping {input_raster.name} to Ontario bounding box...")
 
-    # Set environment variable to allow large GeoJSON files
-    import os
-    os.environ['OGR_GEOJSON_MAX_OBJ_SIZE'] = '0'  # 0 = unlimited
-
-    # Use gdalwarp for memory-efficient clipping
-    # -cutline: use GeoJSON as clipping boundary
-    # -crop_to_cutline: crop to boundary extent
+    # Ontario bounding box: -95.2, 41.7, -74.3, 56.9 (xmin, ymin, xmax, ymax)
+    # Use -te (target extent) instead of -cutline for reliability
+    # -te: target extent in georeferenced coordinates
     # -co: creation options for compression and tiling
     # -multi: use multiple threads
     # -wo NUM_THREADS=ALL_CPUS: use all CPUs for warping
     cmd = [
         "gdalwarp",
-        "-cutline", str(boundary_geojson),
-        "-crop_to_cutline",
+        "-te", "-95.2", "41.7", "-74.3", "56.9",  # Ontario bbox
         "-co", f"COMPRESS={compress}",
         "-co", "TILED=YES",
         "-co", "BLOCKXSIZE=256",
@@ -164,10 +159,16 @@ def clip_raster_to_boundary(
         str(output_raster)
     ]
 
-    logger.info(f"Running: {' '.join(cmd[:6])}...")
-    result = subprocess.run(cmd, check=True, capture_output=True, text=True)
-    if result.stderr:
-        logger.info(f"gdalwarp output: {result.stderr}")
+    logger.info(f"Running gdalwarp with bbox: -95.2,41.7,-74.3,56.9")
+    try:
+        result = subprocess.run(cmd, check=True, capture_output=True, text=True)
+        if result.stderr:
+            logger.info(f"gdalwarp output: {result.stderr}")
+    except subprocess.CalledProcessError as e:
+        logger.error(f"gdalwarp failed with exit code {e.returncode}")
+        logger.error(f"stdout: {e.stdout}")
+        logger.error(f"stderr: {e.stderr}")
+        raise
 
     # Get file size
     size_mb = output_raster.stat().st_size / (1024 * 1024)
