@@ -216,13 +216,13 @@ def process_landcover(year: int):
     return result
 
 
-def process_ndvi(year: int = 2023):
+def process_ndvi(year: int = 2024):
     """Download and process NDVI 250m data."""
     logger.info(f"Processing NDVI {year} (250m)...")
 
-    # Download
+    # Download (new filename format: MODISCOMP7d_YYYY.zip)
     url = NDVI_URL_TEMPLATE.format(year=year)
-    zip_path = RAW_DIR / f"ndvi_{year}_250m.zip"
+    zip_path = RAW_DIR / f"MODISCOMP7d_{year}.zip"
     download_file(url, zip_path)
 
     # Extract
@@ -278,26 +278,27 @@ def main():
     setup_directories()
     download_ontario_boundary()
 
-    # Process land cover (all years)
+    # Process land cover 2020 only (most recent)
     landcover_results = {}
-    for year in [2010, 2015, 2020]:
-        try:
-            result = process_landcover(year)
-            landcover_results[year] = result
-
-            # Upload to S3
-            output_file = Path(result["output"])
-            s3_key = f"{S3_BASE_PATH}/landcover/ontario_landcover_{year}.tif"
-            upload_to_s3(output_file, s3_key)
-
-        except Exception as e:
-            logger.error(f"Failed to process land cover {year}: {e}")
-
-    # Process NDVI (most recent year)
     try:
-        ndvi_result = process_ndvi(2023)
+        logger.info("Processing land cover 2020 (most recent available)...")
+        result = process_landcover(year=2020)
+        landcover_results[2020] = result
+
+        # Upload to S3
+        output_file = Path(result["output"])
+        s3_key = f"{S3_BASE_PATH}/landcover/ontario_landcover_2020.tif"
+        upload_to_s3(output_file, s3_key)
+
+    except Exception as e:
+        logger.error(f"Failed to process land cover 2020: {e}")
+
+    # Process NDVI 2024 (most recent year available)
+    try:
+        logger.info("Processing NDVI 2024 (most recent available)...")
+        ndvi_result = process_ndvi(year=2024)
         output_file = Path(ndvi_result["output"])
-        s3_key = f"{S3_BASE_PATH}/ndvi/ontario_ndvi_2023_250m.tif"
+        s3_key = f"{S3_BASE_PATH}/ndvi/ontario_ndvi_2024_250m.tif"
         upload_to_s3(output_file, s3_key)
     except Exception as e:
         logger.error(f"Failed to process NDVI: {e}")
@@ -307,7 +308,7 @@ def main():
     logger.info("PROCESSING COMPLETE")
     logger.info("="*80)
     logger.info(f"Land cover years processed: {list(landcover_results.keys())}")
-    logger.info(f"NDVI processed: 2023 (250m)")
+    logger.info(f"NDVI processed: 2024 (250m)")
     logger.info(f"Files uploaded to s3://{S3_BUCKET}/{S3_BASE_PATH}/")
 
 
