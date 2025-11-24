@@ -71,27 +71,34 @@ def setup_directories():
 
 
 def download_ontario_boundary():
-    """Download Ontario boundary from S3 or use local copy."""
-    logger.info("Setting up Ontario boundary...")
+    """Create simplified Ontario bounding box for clipping."""
+    logger.info("Creating Ontario bounding box for clipping...")
 
-    # First try to use local copy from /tmp if available
-    local_copy = Path("/tmp/ontario_boundary.geojson")
-    if local_copy.exists():
-        logger.info(f"Using local boundary file from {local_copy}")
-        subprocess.run(["cp", str(local_copy), str(ONTARIO_BOUNDARY)], check=True)
-        logger.info(f"Ontario boundary copied to {ONTARIO_BOUNDARY}")
-        return
+    # Ontario bounding box (simpler than 163MB detailed boundary)
+    # Coordinates: roughly 74-95°W, 41-57°N in EPSG:4326
+    geojson = {
+        "type": "FeatureCollection",
+        "features": [{
+            "type": "Feature",
+            "properties": {},
+            "geometry": {
+                "type": "Polygon",
+                "coordinates": [[
+                    [-95.2, 41.7],
+                    [-74.3, 41.7],
+                    [-74.3, 56.9],
+                    [-95.2, 56.9],
+                    [-95.2, 41.7]
+                ]]
+            }
+        }]
+    }
 
-    # Otherwise download from S3
-    logger.info("Downloading Ontario boundary from S3...")
-    cmd = [
-        "aws", "s3", "cp",
-        f"s3://{S3_BUCKET}/datasets/boundaries/ontario_boundary.geojson",
-        str(ONTARIO_BOUNDARY),
-        "--no-sign-request"  # Allow public access without credentials
-    ]
-    subprocess.run(cmd, check=True)
-    logger.info(f"Ontario boundary saved to {ONTARIO_BOUNDARY}")
+    import json
+    with open(ONTARIO_BOUNDARY, 'w') as f:
+        json.dump(geojson, f)
+
+    logger.info(f"Ontario bounding box created at {ONTARIO_BOUNDARY}")
 
 
 def download_file(url: str, output_path: Path):
@@ -158,7 +165,9 @@ def clip_raster_to_boundary(
     ]
 
     logger.info(f"Running: {' '.join(cmd[:6])}...")
-    subprocess.run(cmd, check=True, capture_output=True)
+    result = subprocess.run(cmd, check=True, capture_output=True, text=True)
+    if result.stderr:
+        logger.info(f"gdalwarp output: {result.stderr}")
 
     # Get file size
     size_mb = output_raster.stat().st_size / (1024 * 1024)
