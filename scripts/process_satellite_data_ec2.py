@@ -139,15 +139,18 @@ def clip_raster_to_boundary(
     """
     logger.info(f"Clipping {input_raster.name} to Ontario bounding box...")
 
-    # Ontario bounding box: -95.2, 41.7, -74.3, 56.9 (xmin, ymin, xmax, ymax)
-    # Use -te (target extent) instead of -cutline for reliability
-    # -te: target extent in georeferenced coordinates
+    # Ontario bounding box: -95.2, 41.7, -74.3, 56.9 (xmin, ymin, xmax, ymax) in EPSG:4326
+    # Use -te (target extent) with -t_srs to reproject to EPSG:4326
+    # This ensures the bbox coordinates match the output CRS
+    # -t_srs EPSG:4326: reproject output to WGS84 lat/lon
+    # -te: target extent in the target CRS (EPSG:4326)
     # -co: creation options for compression and tiling
     # -multi: use multiple threads
     # -wo NUM_THREADS=ALL_CPUS: use all CPUs for warping
     cmd = [
         "gdalwarp",
-        "-te", "-95.2", "41.7", "-74.3", "56.9",  # Ontario bbox
+        "-t_srs", "EPSG:4326",  # Reproject to lat/lon
+        "-te", "-95.2", "41.7", "-74.3", "56.9",  # Ontario bbox in EPSG:4326
         "-co", f"COMPRESS={compress}",
         "-co", "TILED=YES",
         "-co", "BLOCKXSIZE=256",
@@ -159,7 +162,7 @@ def clip_raster_to_boundary(
         str(output_raster)
     ]
 
-    logger.info(f"Running gdalwarp with bbox: -95.2,41.7,-74.3,56.9")
+    logger.info(f"Running gdalwarp: reprojecting to EPSG:4326 with bbox -95.2,41.7,-74.3,56.9")
     try:
         result = subprocess.run(cmd, check=True, capture_output=True, text=True)
         if result.stderr:
