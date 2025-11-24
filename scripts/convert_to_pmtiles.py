@@ -23,7 +23,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Directories
-WORK_DIR = Path("/mnt/pmtiles_processing")
+WORK_DIR = Path.home() / "pmtiles_processing"
 DOWNLOAD_DIR = WORK_DIR / "downloads"
 VECTOR_DIR = WORK_DIR / "vectors"
 TILES_DIR = WORK_DIR / "tiles"
