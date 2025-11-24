@@ -116,7 +116,10 @@ def clip_raster_to_boundary(
     boundary_geojson: Path,
     compress: str = "LZW"
 ) -> Dict:
-    """Clip a raster to Ontario boundaries using rasterio.
+    """Clip a raster to Ontario boundaries using GDAL (memory-efficient).
+
+    Uses gdalwarp command-line tool which handles large files efficiently
+    with windowed reading instead of loading entire raster into memory.
 
     Args:
         input_raster: Path to input raster file
@@ -129,42 +132,33 @@ def clip_raster_to_boundary(
     """
     logger.info(f"Clipping {input_raster.name} to Ontario boundaries...")
 
-    # Set environment variable to allow large GeoJSON files (in MB)
+    # Set environment variable to allow large GeoJSON files
     import os
     os.environ['OGR_GEOJSON_MAX_OBJ_SIZE'] = '0'  # 0 = unlimited
 
-    # Read boundary
-    boundary_gdf = gpd.read_file(boundary_geojson)
+    # Use gdalwarp for memory-efficient clipping
+    # -cutline: use GeoJSON as clipping boundary
+    # -crop_to_cutline: crop to boundary extent
+    # -co: creation options for compression and tiling
+    # -multi: use multiple threads
+    # -wo NUM_THREADS=ALL_CPUS: use all CPUs for warping
+    cmd = [
+        "gdalwarp",
+        "-cutline", str(boundary_geojson),
+        "-crop_to_cutline",
+        "-co", f"COMPRESS={compress}",
+        "-co", "TILED=YES",
+        "-co", "BLOCKXSIZE=256",
+        "-co", "BLOCKYSIZE=256",
+        "-multi",
+        "-wo", "NUM_THREADS=ALL_CPUS",
+        "-overwrite",
+        str(input_raster),
+        str(output_raster)
+    ]
 
-    # Open source raster
-    with rasterio.open(input_raster) as src:
-        # Get boundary in raster CRS
-        boundary_crs = boundary_gdf.to_crs(src.crs)
-
-        # Clip
-        out_image, out_transform = mask(
-            src,
-            boundary_crs.geometry,
-            crop=True,
-            all_touched=True
-        )
-
-        # Update metadata
-        out_meta = src.meta.copy()
-        out_meta.update({
-            "driver": "GTiff",
-            "height": out_image.shape[1],
-            "width": out_image.shape[2],
-            "transform": out_transform,
-            "compress": compress,
-            "tiled": True,
-            "blockxsize": 256,
-            "blockysize": 256
-        })
-
-        # Write clipped raster
-        with rasterio.open(output_raster, "w", **out_meta) as dest:
-            dest.write(out_image)
+    logger.info(f"Running: {' '.join(cmd[:6])}...")
+    subprocess.run(cmd, check=True, capture_output=True)
 
     # Get file size
     size_mb = output_raster.stat().st_size / (1024 * 1024)
