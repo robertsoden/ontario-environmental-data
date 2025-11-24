@@ -44,13 +44,17 @@ S3_BUCKET = "ontario-environmental-data"
 S3_BASE_PATH = "datasets/satellite"
 
 # Data sources
+# Note: Updated URLs as of November 2024
+# All land cover data now available directly as TIFF from datacube (no zip needed)
 LANDCOVER_URLS = {
-    2010: "https://ftp.maps.canada.ca/pub/nrcan_rncan/Land-cover_Couverture-du-sol/canada-landcover_canada-couverture-du-sol/CanadaLandcover2010.zip",
-    2015: "https://ftp.maps.canada.ca/pub/nrcan_rncan/Land-cover_Couverture-du-sol/canada-landcover_canada-couverture-du-sol/CanadaLandcover2015.zip",
-    2020: "https://ftp.maps.canada.ca/pub/nrcan_rncan/Land-cover_Couverture-du-sol/canada-landcover_canada-couverture-du-sol/CanadaLandcover2020.zip",
+    2010: "https://datacube-prod-data-public.s3.ca-central-1.amazonaws.com/store/land/landcover/landcover-2010-classification.tif",
+    2015: "https://datacube-prod-data-public.s3.ca-central-1.amazonaws.com/store/land/landcover/landcover-2015-classification.tif",
+    2020: "https://datacube-prod-data-public.s3.ca-central-1.amazonaws.com/store/land/landcover/landcover-2020-classification.tif",
 }
 
-NDVI_URL_TEMPLATE = "http://ftp.maps.canada.ca/pub/statcan_statcan/modis/ndvi_{year}_250m.zip"
+# NDVI data from Statistics Canada MODIS
+# Changed from ndvi_{year}_250m.zip to MODISCOMP7d_{year}.zip format
+NDVI_URL_TEMPLATE = "https://ftp.maps.canada.ca/pub/statcan_statcan/modis/MODISCOMP7d_{year}.zip"
 
 CDEM_INDEX_URL = "https://ftp.maps.canada.ca/pub/elevation/dem_mne/highresolution_hauteresolution/tiles/CDEM_index.geojson"
 
@@ -125,6 +129,10 @@ def clip_raster_to_boundary(
     """
     logger.info(f"Clipping {input_raster.name} to Ontario boundaries...")
 
+    # Set environment variable to allow large GeoJSON files (in MB)
+    import os
+    os.environ['OGR_GEOJSON_MAX_OBJ_SIZE'] = '0'  # 0 = unlimited
+
     # Read boundary
     boundary_gdf = gpd.read_file(boundary_geojson)
 
@@ -175,20 +183,31 @@ def process_landcover(year: int):
     """Download and process land cover data for a specific year."""
     logger.info(f"Processing land cover {year}...")
 
-    # Download
-    zip_path = RAW_DIR / f"landcover_{year}.zip"
-    download_file(LANDCOVER_URLS[year], zip_path)
+    url = LANDCOVER_URLS[year]
 
-    # Extract
-    extract_dir = RAW_DIR / f"landcover_{year}"
-    extract_zip(zip_path, extract_dir)
+    # Check if URL is direct TIFF or ZIP
+    if url.endswith('.tif'):
+        # Direct TIFF download (2020)
+        input_tif = RAW_DIR / f"landcover_{year}.tif"
+        download_file(url, input_tif)
+        files_to_cleanup = [input_tif]
+    else:
+        # ZIP file download (legacy 2010, 2015)
+        zip_path = RAW_DIR / f"landcover_{year}.zip"
+        download_file(url, zip_path)
 
-    # Find the .tif file (may be in subdirectories)
-    tif_files = list(extract_dir.rglob("*.tif"))
-    if not tif_files:
-        raise FileNotFoundError(f"No .tif file found in {extract_dir}")
+        # Extract
+        extract_dir = RAW_DIR / f"landcover_{year}"
+        extract_zip(zip_path, extract_dir)
 
-    input_tif = tif_files[0]
+        # Find the .tif file (may be in subdirectories)
+        tif_files = list(extract_dir.rglob("*.tif"))
+        if not tif_files:
+            raise FileNotFoundError(f"No .tif file found in {extract_dir}")
+
+        input_tif = tif_files[0]
+        files_to_cleanup = [extract_dir, zip_path]
+
     logger.info(f"Found input raster: {input_tif}")
 
     # Clip to Ontario
@@ -196,8 +215,9 @@ def process_landcover(year: int):
     result = clip_raster_to_boundary(input_tif, output_tif, ONTARIO_BOUNDARY)
 
     # Clean up raw data to save space
-    logger.info(f"Cleaning up {extract_dir}...")
-    subprocess.run(["rm", "-rf", str(extract_dir), str(zip_path)])
+    logger.info(f"Cleaning up downloaded files...")
+    for path in files_to_cleanup:
+        subprocess.run(["rm", "-rf", str(path)])
 
     return result
 
