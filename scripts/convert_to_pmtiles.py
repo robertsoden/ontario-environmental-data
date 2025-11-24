@@ -70,10 +70,10 @@ def polygonize_raster(input_raster: Path, output_geojson: Path, field_name: str 
 
     cmd = [
         "gdal_polygonize.py",
-        str(input_raster),
-        str(output_geojson),
         "-f", "GeoJSON",
         "-b", "1",
+        str(input_raster),
+        str(output_geojson),
         field_name
     ]
 
