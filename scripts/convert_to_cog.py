@@ -97,26 +97,26 @@ def convert_to_cog(input_tif: Path, output_tif: Path, compress: str = "LZW"):
     logger.info(f"  Output: {output_size_mb:.1f} MB")
 
 
-def process_landcover():
-    """Process land cover 2020 data."""
+def process_landcover(year: str = "2020"):
+    """Process land cover data for a specific year."""
     logger.info("=" * 80)
-    logger.info("PROCESSING LAND COVER 2020")
+    logger.info(f"PROCESSING LAND COVER {year}")
     logger.info("=" * 80)
 
     # Download
-    s3_key = f"{S3_SATELLITE_PATH}/landcover/ontario_landcover_2020.tif"
-    local_tif = DOWNLOAD_DIR / "landcover_2020.tif"
+    s3_key = f"{S3_SATELLITE_PATH}/landcover/ontario_landcover_{year}.tif"
+    local_tif = DOWNLOAD_DIR / f"landcover_{year}.tif"
     download_from_s3(s3_key, local_tif)
 
     # Convert to COG
-    cog_file = COG_DIR / "ontario_landcover_2020_cog.tif"
+    cog_file = COG_DIR / f"ontario_landcover_{year}_cog.tif"
     convert_to_cog(local_tif, cog_file, compress="LZW")
 
     # Upload (overwrite original with COG version)
     upload_to_s3(cog_file, s3_key)
 
     # Cleanup
-    logger.info("Cleaning up land cover files...")
+    logger.info(f"Cleaning up land cover {year} files...")
     local_tif.unlink()
 
     return s3_key
@@ -157,12 +157,13 @@ def main():
 
     results = {}
 
-    # Process land cover
-    try:
-        results["landcover"] = process_landcover()
-    except Exception as e:
-        logger.error(f"Failed to process land cover: {e}")
-        results["landcover"] = None
+    # Process land cover years
+    for year in ["2010", "2015", "2020"]:
+        try:
+            results[f"landcover_{year}"] = process_landcover(year)
+        except Exception as e:
+            logger.error(f"Failed to process land cover {year}: {e}")
+            results[f"landcover_{year}"] = None
 
     # Process NDVI
     try:
