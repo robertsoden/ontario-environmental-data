@@ -227,6 +227,31 @@ gdf, warnings = validate_geojson_file(
 
 **No data should exist in williams-treaties that isn't in ontario-environmental-data S3.** The williams-treaties app should only reference URLs from the ontario-environmental-data S3 bucket. Local customizations are limited to display configuration (styling, popups, layer grouping).
 
+### S3 URL Structure
+
+All datasets follow a **category-based** structure:
+
+```
+s3://ontario-environmental-data/datasets/{category}/{filename}.geojson
+```
+
+**Categories:**
+- `boundaries` - Administrative boundaries (municipalities, reserves, treaty areas)
+- `biodiversity` - Species observations (eBird, iNaturalist)
+- `community` - Community data (well-being, water advisories, infrastructure)
+- `environmental` - Environmental features (ecoregions, fire perimeters, contours)
+- `hydrology` - Water features (watersheds, wetlands, waterbodies, dams)
+- `infrastructure` - Built features (trails, trail access points)
+- `organizations` - Organizations (environmental charities)
+- `protected_areas` - Protected lands (parks, conservation authorities)
+- `satellite` - Raster data (NDVI, land cover)
+
+**Naming convention:**
+- Ontario-wide datasets: `{name}.geojson` (e.g., `ontario_reserves.geojson`)
+- Williams Treaty subsets: `williams_treaty_{name}.geojson` (e.g., `williams_treaty_watersheds.geojson`)
+
+The `scope` field in the dataset registry (`ontario` vs `williams_treaty`) is metadata only - it does not affect the S3 path structure.
+
 ### Workflow for Adding New Data
 
 1. **Add to ontario-environmental-data first:**
