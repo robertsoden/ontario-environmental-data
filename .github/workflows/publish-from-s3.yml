@@ -210,11 +210,15 @@ jobs:
           # Category display names
           category_names = {
               "boundaries": "Boundaries",
+              "indigenous": "Indigenous",
               "communities": "Communities",
               "community": "Community Well-Being",
               "protected_areas": "Protected Areas",
+              "hydrology": "Hydrology",
               "biodiversity": "Biodiversity",
-              "environmental": "Environmental"
+              "environmental": "Environmental",
+              "infrastructure": "Infrastructure",
+              "organizations": "Organizations"
           }
 
           # Generate HTML
@@ -367,7 +371,7 @@ jobs:
           """
 
           # Sort categories
-          category_order = ["boundaries", "communities", "community", "protected_areas", "biodiversity", "environmental"]
+          category_order = ["boundaries", "indigenous", "communities", "community", "protected_areas", "hydrology", "biodiversity", "environmental", "infrastructure", "organizations"]
 
           for cat in category_order:
               if cat not in by_category:
