@@ -1922,6 +1922,89 @@ DATASETS: Dict[str, DatasetDefinition] = {
         output_format="geojson",
         min_records=1,
     ),
+
+    # =========================================================================
+    # SATELLITE DATA - Raster datasets (NDVI, Land Cover)
+    # =========================================================================
+
+    "ndvi_2024": DatasetDefinition(
+        id="ndvi_2024",
+        name="NDVI 2024 (Vegetation Index)",
+        description=(
+            "Normalized Difference Vegetation Index (NDVI) for 2024 from MODIS 250m "
+            "resolution satellite imagery. Measures vegetation health and density across "
+            "Ontario. Served as Cloud Optimized GeoTIFF (COG) for efficient web access."
+        ),
+        category="environmental",
+        scope="ontario",
+        style=None,  # Raster styling handled by map renderer
+        is_static=True,
+        s3_url="https://ontario-environmental-data.s3.amazonaws.com/datasets/satellite/ndvi/ontario_ndvi_2024_250m.tif",
+        output_path=Path("datasets/satellite/ndvi/ontario_ndvi_2024_250m.tif"),
+        output_format="tif",
+        min_records=1,
+        enabled=True,
+    ),
+
+    "landcover_2020": DatasetDefinition(
+        id="landcover_2020",
+        name="Land Cover 2020",
+        description=(
+            "North American Land Change Monitoring System (NALCMS) 2020 land cover "
+            "classification for Ontario at 30m resolution. 15 land cover classes "
+            "including forests, wetlands, cropland, and urban areas. Served as Cloud "
+            "Optimized GeoTIFF (COG). Source: Natural Resources Canada."
+        ),
+        category="environmental",
+        scope="ontario",
+        style=None,  # Raster styling handled by map renderer
+        is_static=True,
+        s3_url="https://ontario-environmental-data.s3.amazonaws.com/datasets/satellite/landcover/ontario_landcover_2020.tif",
+        output_path=Path("datasets/satellite/landcover/ontario_landcover_2020.tif"),
+        output_format="tif",
+        min_records=1,
+        enabled=True,
+    ),
+
+    "landcover_2015": DatasetDefinition(
+        id="landcover_2015",
+        name="Land Cover 2015",
+        description=(
+            "North American Land Change Monitoring System (NALCMS) 2015 land cover "
+            "classification for Ontario at 30m resolution. Enables temporal analysis "
+            "of land cover change when compared with 2010 and 2020 data. Served as "
+            "Cloud Optimized GeoTIFF (COG). Source: Natural Resources Canada."
+        ),
+        category="environmental",
+        scope="ontario",
+        style=None,  # Raster styling handled by map renderer
+        is_static=True,
+        s3_url="https://ontario-environmental-data.s3.amazonaws.com/datasets/satellite/landcover/ontario_landcover_2015.tif",
+        output_path=Path("datasets/satellite/landcover/ontario_landcover_2015.tif"),
+        output_format="tif",
+        min_records=1,
+        enabled=True,
+    ),
+
+    "landcover_2010": DatasetDefinition(
+        id="landcover_2010",
+        name="Land Cover 2010",
+        description=(
+            "North American Land Change Monitoring System (NALCMS) 2010 land cover "
+            "classification for Ontario at 30m resolution. Baseline data for land "
+            "cover change analysis over the 2010-2020 decade. Served as Cloud "
+            "Optimized GeoTIFF (COG). Source: Natural Resources Canada."
+        ),
+        category="environmental",
+        scope="ontario",
+        style=None,  # Raster styling handled by map renderer
+        is_static=True,
+        s3_url="https://ontario-environmental-data.s3.amazonaws.com/datasets/satellite/landcover/ontario_landcover_2010.tif",
+        output_path=Path("datasets/satellite/landcover/ontario_landcover_2010.tif"),
+        output_format="tif",
+        min_records=1,
+        enabled=True,
+    ),
 }
 
 
