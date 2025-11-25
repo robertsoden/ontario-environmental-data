@@ -1152,58 +1152,6 @@ DATASETS: Dict[str, DatasetDefinition] = {
     # BIODIVERSITY - Species observations and wildlife data
     # =========================================================================
 
-    "inaturalist": DatasetDefinition(
-        id="inaturalist",
-        name="iNaturalist Observations",
-        description=(
-            "Citizen science biodiversity observations from iNaturalist. Research-"
-            "grade observations verified by the community. Includes species name, "
-            "location, date, and observer. Updated periodically with recent data."
-        ),
-        category="biodiversity",
-        scope="ontario",
-        style=DatasetStyle(
-            geometry_type="point",
-            fill_color=FEATURE_COLORS["wildlife_observation"],
-            stroke_color="#FFFFFF",
-            fill_opacity=0.7,
-            stroke_width=1,
-            point_radius=5,
-            icon="circle",
-        ),
-        collect_fn=_collect_inaturalist,
-        output_path=Path("data/processed/inaturalist_observations_2024.json"),
-        output_format="json",
-        min_records=1,
-        enabled=False,  # Dynamic API dataset - use williams_treaty_inaturalist for static S3 data
-    ),
-
-    "ebird": DatasetDefinition(
-        id="ebird",
-        name="eBird Recent Observations",
-        description=(
-            "Recent bird sightings from eBird, the world's largest biodiversity "
-            "citizen science project. Includes species, location, count, and "
-            "observation date. Data refreshed from eBird API."
-        ),
-        category="biodiversity",
-        scope="ontario",
-        style=DatasetStyle(
-            geometry_type="point",
-            fill_color=FEATURE_COLORS["bird_observation"],
-            stroke_color="#FFFFFF",
-            fill_opacity=0.7,
-            stroke_width=1,
-            point_radius=5,
-            icon="circle",
-        ),
-        collect_fn=_collect_ebird,
-        output_path=Path("data/processed/ebird_observations_recent.json"),
-        output_format="json",
-        min_records=1,
-        enabled=False,  # Dynamic API dataset - use ebird_observations for static S3 data
-    ),
-
     "ebird_observations": DatasetDefinition(
         id="ebird_observations",
         name="eBird Observations (Static)",
@@ -1418,31 +1366,6 @@ DATASETS: Dict[str, DatasetDefinition] = {
         output_format="geojson",
         min_records=1,
         required_fields=["csd_name", "cwb_score"],
-    ),
-
-    "water_advisories": DatasetDefinition(
-        id="water_advisories",
-        name="Drinking Water Advisories (Legacy)",
-        description=(
-            "Historical drinking water advisories for First Nations communities. "
-            "This dataset is deprecated - use water_advisories_data instead."
-        ),
-        category="community",
-        scope="ontario",
-        style=DatasetStyle(
-            geometry_type="point",
-            fill_color=FEATURE_COLORS["water_advisory"],
-            stroke_color="#FFFFFF",
-            fill_opacity=0.9,
-            stroke_width=2,
-            point_radius=8,
-            icon="alert",
-        ),
-        output_path=Path("data/processed/water_advisories.geojson"),
-        output_format="geojson",
-        min_records=1,
-        required_fields=["community_name", "latitude", "longitude"],
-        enabled=False,  # Deprecated
     ),
 
     "water_advisories_data": DatasetDefinition(
