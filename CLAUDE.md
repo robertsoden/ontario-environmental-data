@@ -207,6 +207,41 @@ gdf, warnings = validate_geojson_file(
 )
 ```
 
+## Repository Relationship: ontario-environmental-data and williams-treaties
+
+### Overview
+
+**ontario-environmental-data** (this repo) is the **single source of truth** for all datasets:
+- Python dataset registry (`ontario_data/datasets.py`) defining all datasets with metadata, S3 URLs, and styling
+- Data collection scripts that fetch from APIs and process raw data
+- S3 bucket (`ontario-environmental-data`) where all processed data is stored
+- GitHub Pages catalog (`https://robertsoden.io/ontario-environmental-data/`) listing available datasets
+
+**williams-treaties** is a **consuming application** that displays data from this repo:
+- Map application UI (Mapbox-based)
+- Layer configuration (`web/config/layers.yaml`) that references S3 URLs from ontario-environmental-data
+- Custom styling and popups for the Williams Treaty context
+- Local customizations (layer groupings, UI features)
+
+### Key Principle
+
+**No data should exist in williams-treaties that isn't in ontario-environmental-data S3.** The williams-treaties app should only reference URLs from the ontario-environmental-data S3 bucket. Local customizations are limited to display configuration (styling, popups, layer grouping).
+
+### Workflow for Adding New Data
+
+1. **Add to ontario-environmental-data first:**
+   - Create/update collection function in `ontario_data/sources/`
+   - Add `DatasetDefinition` to `ontario_data/datasets.py` with `s3_url`
+   - Run collection script to generate data
+   - Upload to S3 bucket
+   - Run "Publish Data to GitHub Pages" workflow to update catalog
+
+2. **Then add to williams-treaties:**
+   - Add layer entry to `web/config/layers.yaml`
+   - Set `data_url` to the S3 URL from ontario-environmental-data
+   - Configure styling, popups, and legend
+   - Push to deploy on Render
+
 ## Common Development Workflows
 
 ### Adding a new data source
