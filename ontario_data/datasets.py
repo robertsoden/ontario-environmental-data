@@ -878,6 +878,8 @@ DATASETS: Dict[str, DatasetDefinition] = {
             stroke_opacity=0.7,
         ),
         collect_fn=_collect_conservation_authorities,
+        is_static=True,
+        s3_url="https://ontario-environmental-data.s3.us-east-1.amazonaws.com/datasets/protected_areas/conservation_authorities.geojson",
         output_path=Path("data/processed/conservation_authorities.geojson"),
         output_format="geojson",
         min_records=1,
@@ -1173,6 +1175,7 @@ DATASETS: Dict[str, DatasetDefinition] = {
         output_path=Path("data/processed/inaturalist_observations_2024.json"),
         output_format="json",
         min_records=1,
+        enabled=False,  # Dynamic API dataset - use williams_treaty_inaturalist for static S3 data
     ),
 
     "ebird": DatasetDefinition(
@@ -1198,6 +1201,7 @@ DATASETS: Dict[str, DatasetDefinition] = {
         output_path=Path("data/processed/ebird_observations_recent.json"),
         output_format="json",
         min_records=1,
+        enabled=False,  # Dynamic API dataset - use ebird_observations for static S3 data
     ),
 
     "ebird_observations": DatasetDefinition(
@@ -1300,6 +1304,8 @@ DATASETS: Dict[str, DatasetDefinition] = {
             stroke_opacity=0.8,
         ),
         collect_fn=_collect_fire_perimeters,
+        is_static=True,
+        s3_url="https://ontario-environmental-data.s3.us-east-1.amazonaws.com/datasets/environmental/fire_perimeters_1976_2024.geojson",
         output_path=Path("data/processed/fire_perimeters_1976_2024.geojson"),
         output_format="geojson",
         min_records=1,
@@ -1406,6 +1412,8 @@ DATASETS: Dict[str, DatasetDefinition] = {
             stroke_opacity=0.8,
         ),
         collect_fn=_collect_community_wellbeing,
+        is_static=True,
+        s3_url="https://ontario-environmental-data.s3.us-east-1.amazonaws.com/datasets/community/community_wellbeing_ontario.geojson",
         output_path=Path("data/processed/cwb/community_wellbeing_ontario.geojson"),
         output_format="geojson",
         min_records=1,
