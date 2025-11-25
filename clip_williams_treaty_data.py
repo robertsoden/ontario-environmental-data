@@ -15,20 +15,40 @@ from pathlib import Path
 from typing import Optional
 
 import geopandas as gpd
-from shapely.geometry import box
+from shapely.ops import unary_union
 
-# Williams Treaty territory approximate bounds
-# (min_lat, min_lon, max_lat, max_lon)
-WILLIAMS_TREATY_BOUNDS = (43.8, -80.2, 45.2, -78.0)
+# Williams Treaty boundary file - the actual treaty territory polygon
+WILLIAMS_TREATY_BOUNDARY_FILE = Path("data/boundaries/williams_treaty.geojson")
 
-# Create bounding box polygon (note: box takes minx, miny, maxx, maxy order)
-# which is (min_lon, min_lat, max_lon, max_lat)
-WILLIAMS_TREATY_BBOX = box(
-    WILLIAMS_TREATY_BOUNDS[1],  # min_lon (-80.2)
-    WILLIAMS_TREATY_BOUNDS[0],  # min_lat (43.8)
-    WILLIAMS_TREATY_BOUNDS[3],  # max_lon (-78.0)
-    WILLIAMS_TREATY_BOUNDS[2],  # max_lat (45.2)
-)
+# Will be loaded at runtime
+WILLIAMS_TREATY_BOUNDARY = None
+
+
+def load_williams_treaty_boundary():
+    """Load the actual Williams Treaty boundary polygon."""
+    global WILLIAMS_TREATY_BOUNDARY
+
+    boundary_paths = [
+        WILLIAMS_TREATY_BOUNDARY_FILE,
+        Path("data/processed/boundaries/williams_treaty.geojson"),
+    ]
+
+    for path in boundary_paths:
+        if path.exists():
+            gdf = gpd.read_file(path)
+            if gdf.crs is None:
+                gdf = gdf.set_crs("EPSG:4326")
+            elif gdf.crs.to_epsg() != 4326:
+                gdf = gdf.to_crs("EPSG:4326")
+            WILLIAMS_TREATY_BOUNDARY = unary_union(gdf.geometry)
+            print(f"Loaded Williams Treaty boundary from: {path}")
+            return True
+
+    print("ERROR: Williams Treaty boundary file not found!")
+    print("Please ensure one of these files exists:")
+    for path in boundary_paths:
+        print(f"  - {path}")
+    return False
 
 # Output directory for Williams Treaty datasets
 OUTPUT_DIR = Path("data/datasets/williams_treaty")
@@ -164,11 +184,19 @@ def clip_to_williams_treaty(
     gdf: gpd.GeoDataFrame, geometry_type: str = "auto"
 ) -> gpd.GeoDataFrame:
     """
-    Clip or filter a GeoDataFrame to Williams Treaty territory bounds.
+    Clip or filter a GeoDataFrame to Williams Treaty territory boundary.
 
-    For polygons: clips geometries to the boundary
+    For polygons: clips geometries to the actual treaty boundary
     For points/lines: filters to features that intersect the boundary
     """
+    if gdf.empty:
+        return gdf
+
+    if WILLIAMS_TREATY_BOUNDARY is None:
+        raise ValueError("Williams Treaty boundary not loaded. Call load_williams_treaty_boundary() first.")
+
+    # Remove rows with null geometries
+    gdf = gdf[gdf.geometry.notna()].copy()
     if gdf.empty:
         return gdf
 
@@ -178,29 +206,34 @@ def clip_to_williams_treaty(
     elif gdf.crs.to_epsg() != 4326:
         gdf = gdf.to_crs("EPSG:4326")
 
-    # Determine geometry type
+    # Determine geometry type from first valid geometry
     if geometry_type == "auto":
-        sample_geom = gdf.geometry.iloc[0]
-        geom_type = sample_geom.geom_type
+        valid_geoms = gdf[gdf.geometry.is_valid]
+        if valid_geoms.empty:
+            # Fall back to first geometry
+            sample_geom = gdf.geometry.iloc[0]
+        else:
+            sample_geom = valid_geoms.geometry.iloc[0]
+        geom_type = sample_geom.geom_type if sample_geom else "Polygon"
     else:
         geom_type = geometry_type
 
     # Create boundary GeoDataFrame for spatial operations
     boundary_gdf = gpd.GeoDataFrame(
-        {"geometry": [WILLIAMS_TREATY_BBOX]}, crs="EPSG:4326"
+        {"geometry": [WILLIAMS_TREATY_BOUNDARY]}, crs="EPSG:4326"
     )
 
     if geom_type in ["Polygon", "MultiPolygon"]:
-        # For polygons, use clip (intersection)
+        # For polygons, use clip (intersection with actual boundary)
         try:
             clipped = gpd.clip(gdf, boundary_gdf)
             return clipped
         except Exception:
             # Fall back to intersection filter
-            return gdf[gdf.intersects(WILLIAMS_TREATY_BBOX)]
+            return gdf[gdf.intersects(WILLIAMS_TREATY_BOUNDARY)]
     else:
         # For points and lines, filter to those that intersect
-        return gdf[gdf.intersects(WILLIAMS_TREATY_BBOX)]
+        return gdf[gdf.intersects(WILLIAMS_TREATY_BOUNDARY)]
 
 
 def process_dataset(dataset_id: str, parent_path: str, output_filename: str) -> dict:
@@ -261,7 +294,12 @@ def main():
     print("=" * 80)
     print("WILLIAMS TREATY TERRITORY DATA CLIPPING")
     print("=" * 80)
-    print(f"\nBounds: {WILLIAMS_TREATY_BOUNDS}")
+
+    # Load the actual Williams Treaty boundary
+    if not load_williams_treaty_boundary():
+        print("\nFailed to load boundary. Exiting.")
+        return
+
     print(f"Output directory: {OUTPUT_DIR}")
     print(f"\nDatasets to process: {len(DATASETS_TO_CLIP)}")
 

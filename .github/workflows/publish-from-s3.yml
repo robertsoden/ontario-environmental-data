@@ -1,7 +1,8 @@
-name: Publish Data to GitHub Pages (from S3)
+name: Publish Data to GitHub Pages
 
-# This workflow publishes the landing page to GitHub Pages
-# Data is served directly from S3, so we only need to publish the catalog/index
+# This workflow generates the catalog from the dataset registry,
+# verifies each dataset exists in S3, and publishes to GitHub Pages.
+# Data files are served from S3; only catalog.json and index.html are on GitHub Pages.
 
 on:
   workflow_dispatch:
@@ -22,6 +23,7 @@ concurrency:
 env:
   S3_BUCKET: ontario-environmental-data
   S3_REGION: us-east-1
+  GITHUB_PAGES_URL: https://robertsoden.io/ontario-environmental-data
 
 jobs:
   build:
@@ -38,20 +40,137 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Download catalog from S3
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+          pip install awscli
+
+      - name: Generate catalog from registry (verify against S3)
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_DEFAULT_REGION: ${{ env.S3_REGION }}
         run: |
-          echo "📥 Downloading catalog from S3..."
-          pip install awscli
-
-          # Download catalog
+          echo "📋 Generating catalog from dataset registry..."
           mkdir -p data
-          aws s3 cp s3://${{ env.S3_BUCKET }}/catalog.json data/catalog.json
 
-          echo "✅ Catalog downloaded"
+          python3 << 'CATALOG_PY'
+          import json
+          import subprocess
+          from pathlib import Path
+          from datetime import datetime, timezone
+
+          # Import dataset registry
+          import sys
+          sys.path.insert(0, '.')
+          from ontario_data.datasets import DATASETS
+
+          bucket = "${{ env.S3_BUCKET }}"
+          s3_base_url = f"https://{bucket}.s3.${{ env.S3_REGION }}.amazonaws.com"
+          github_pages_url = "${{ env.GITHUB_PAGES_URL }}"
+
+          catalog = {
+              "metadata": {
+                  "generated": datetime.now(timezone.utc).isoformat(),
+                  "source": "Ontario Environmental Data Registry",
+                  "catalog_url": f"{github_pages_url}/catalog.json",
+                  "storage": {
+                      "provider": "AWS S3",
+                      "bucket": bucket,
+                      "region": "${{ env.S3_REGION }}",
+                      "base_url": s3_base_url
+                  }
+              },
+              "datasets": {}
+          }
+
+          verified = 0
+          missing = 0
+
+          for dataset_id, dataset in DATASETS.items():
+              if not dataset.enabled:
+                  continue
+
+              # Determine S3 path
+              if dataset.s3_url:
+                  s3_url = dataset.s3_url
+                  s3_path = s3_url.replace(f"{s3_base_url}/", "")
+              elif dataset.output_path:
+                  filename = dataset.output_path.name
+                  if dataset.scope == "williams_treaty":
+                      s3_path = f"datasets/williams_treaty/{filename}"
+                  else:
+                      s3_path = f"datasets/{dataset.category}/{filename}"
+                  s3_url = f"{s3_base_url}/{s3_path}"
+              else:
+                  continue
+
+              # Verify file exists in S3
+              result = subprocess.run(
+                  ["aws", "s3", "ls", f"s3://{bucket}/{s3_path}"],
+                  capture_output=True, text=True
+              )
+
+              if result.returncode != 0:
+                  print(f"⚠️  Not in S3: {dataset_id}")
+                  missing += 1
+                  continue
+
+              # Parse size from ls output
+              size_mb = 0
+              if result.stdout.strip():
+                  parts = result.stdout.strip().split()
+                  if len(parts) >= 3:
+                      try:
+                          size_mb = round(int(parts[2]) / 1024 / 1024, 2)
+                      except ValueError:
+                          pass
+
+              # Count features for small files
+              count = None
+              if size_mb < 50 and dataset.output_format in ["geojson", "json"]:
+                  try:
+                      temp = Path(f"/tmp/{dataset_id}.geojson")
+                      subprocess.run(
+                          ["aws", "s3", "cp", f"s3://{bucket}/{s3_path}", str(temp)],
+                          check=True, capture_output=True
+                      )
+                      with open(temp) as f:
+                          data = json.load(f)
+                          count = len(data.get("features", []))
+                      temp.unlink()
+                  except Exception:
+                      pass
+
+              entry = {
+                  "id": dataset_id,
+                  "name": dataset.name,
+                  "description": dataset.description,
+                  "url": s3_url,
+                  "category": dataset.category,
+                  "scope": dataset.scope,
+                  "format": dataset.output_format,
+                  "size_mb": size_mb,
+                  "last_updated": datetime.now(timezone.utc).isoformat()
+              }
+              if count is not None:
+                  entry["count"] = count
+              if dataset.parent_dataset:
+                  entry["parent_dataset"] = dataset.parent_dataset
+
+              catalog["datasets"][dataset_id] = entry
+              verified += 1
+              count_str = f"{count} features" if count else f"{size_mb} MB"
+              print(f"✅ {dataset_id}: {count_str}")
+
+          with open("data/catalog.json", "w") as f:
+              json.dump(catalog, f, indent=2)
+
+          print(f"\n📊 Catalog: {verified} verified, {missing} missing")
+          CATALOG_PY
+
+          echo "✅ Catalog generated"
           cat data/catalog.json | python -m json.tool | head -30
 
       - name: Generate landing page
@@ -76,8 +195,9 @@ jobs:
           with open(catalog_path) as f:
               catalog = json.load(f)
 
-          # Base S3 URL
-          base_url = catalog["metadata"]["storage"]["base_url"]
+          # URLs
+          s3_base_url = catalog["metadata"]["storage"]["base_url"]
+          catalog_url = catalog["metadata"].get("catalog_url", "catalog.json")
 
           # Group datasets by category
           by_category = {}
@@ -239,7 +359,7 @@ jobs:
                   <p><strong>Data Storage:</strong> All datasets are hosted on AWS S3 with public HTTPS access</p>
                   <p><strong>Format:</strong> GeoJSON (WGS84, EPSG:4326)</p>
                   <p><strong>Updates:</strong> Weekly automated collection</p>
-                  <p><strong>Catalog API:</strong> <a href="{base_url}/catalog.json" target="_blank">{base_url}/catalog.json</a></p>
+                  <p><strong>Catalog API:</strong> <a href="{catalog_url}" target="_blank">{catalog_url}</a></p>
               </div>
 
               <div class="datasets">
@@ -310,7 +430,7 @@ jobs:
                   <p>Generated: {datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")}</p>
                   <p>
                       <a href="https://github.com/robertsoden/ontario-environmental-data">View on GitHub</a> |
-                      <a href="{base_url}/catalog.json">API Catalog</a>
+                      <a href="{catalog_url}">API Catalog</a>
                   </p>
               </footer>
           </body>
