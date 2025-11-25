@@ -1283,6 +1283,29 @@ DATASETS: Dict[str, DatasetDefinition] = {
         min_records=1,
     ),
 
+    "williams_treaty_contours": DatasetDefinition(
+        id="williams_treaty_contours",
+        name="Topographic Contours (Williams Treaty)",
+        description=(
+            "Topographic contour lines showing elevation intervals within Williams "
+            "Treaty territory. Clipped from Ontario-wide contours data."
+        ),
+        category="environmental",
+        scope="williams_treaty",
+        parent_dataset="contours",
+        style=DatasetStyle(
+            geometry_type="line",
+            stroke_color=FEATURE_COLORS["contour"],
+            stroke_width=0.5,
+            stroke_opacity=0.5,
+        ),
+        is_static=True,
+        s3_url="https://ontario-environmental-data.s3.us-east-1.amazonaws.com/datasets/environmental/williams_treaty_contours.geojson",
+        output_path=Path("data/datasets/environmental/williams_treaty_contours.geojson"),
+        output_format="geojson",
+        min_records=1,
+    ),
+
     # =========================================================================
     # INFRASTRUCTURE - Trails, access points, and built features
     # =========================================================================
