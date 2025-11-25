@@ -1782,6 +1782,146 @@ DATASETS: Dict[str, DatasetDefinition] = {
         output_format="geojson",
         min_records=1,
     ),
+
+    "williams_treaty_trail_access_points": DatasetDefinition(
+        id="williams_treaty_trail_access_points",
+        name="Trail Access Points (Williams Treaty)",
+        description=(
+            "Trailheads and access points within Williams Treaty territory. Includes "
+            "parking areas and facilities for trails in the Kawartha Highlands, "
+            "Lake Simcoe region, and Georgian Bay area. Important for recreation "
+            "planning and land access."
+        ),
+        category="infrastructure",
+        scope="williams_treaty",
+        parent_dataset="trail_access_points",
+        style=DatasetStyle(
+            geometry_type="point",
+            fill_color=FEATURE_COLORS["trail_access"],
+            stroke_color="#5D3A1A",
+            fill_opacity=0.95,
+            stroke_width=2,
+            point_radius=7,
+            icon="marker",
+        ),
+        is_static=True,
+        s3_url="https://ontario-environmental-data.s3.us-east-1.amazonaws.com/datasets/williams_treaty/trail_access_points.geojson",
+        output_path=Path("data/datasets/williams_treaty/trail_access_points.geojson"),
+        output_format="geojson",
+        min_records=1,
+    ),
+
+    "williams_treaty_inaturalist": DatasetDefinition(
+        id="williams_treaty_inaturalist",
+        name="iNaturalist Observations (Williams Treaty)",
+        description=(
+            "Biodiversity observations from iNaturalist within Williams Treaty "
+            "territory. Research-grade citizen science data showing species "
+            "distribution in the Lake Simcoe, Kawartha, and Georgian Bay regions. "
+            "Valuable for understanding local biodiversity and species at risk."
+        ),
+        category="biodiversity",
+        scope="williams_treaty",
+        parent_dataset="inaturalist",
+        style=DatasetStyle(
+            geometry_type="point",
+            fill_color=FEATURE_COLORS["wildlife_observation"],
+            stroke_color="#FFFFFF",
+            fill_opacity=0.8,
+            stroke_width=1.5,
+            point_radius=6,
+            icon="circle",
+        ),
+        is_static=True,
+        s3_url="https://ontario-environmental-data.s3.us-east-1.amazonaws.com/datasets/williams_treaty/inaturalist.geojson",
+        output_path=Path("data/datasets/williams_treaty/inaturalist.geojson"),
+        output_format="geojson",
+        min_records=1,
+    ),
+
+    "williams_treaty_community_wellbeing": DatasetDefinition(
+        id="williams_treaty_community_wellbeing",
+        name="Community Well-Being (Williams Treaty)",
+        description=(
+            "Community Well-Being Index scores for communities within Williams "
+            "Treaty territory. Enables comparison of socio-economic indicators "
+            "between Williams Treaty First Nations and surrounding municipalities. "
+            "Key data for understanding regional equity and service needs."
+        ),
+        category="community",
+        scope="williams_treaty",
+        parent_dataset="community_wellbeing",
+        style=DatasetStyle(
+            geometry_type="polygon",
+            fill_color=FEATURE_COLORS["community_point"],
+            stroke_color="#CC7000",
+            fill_opacity=0.45,
+            stroke_width=1.5,
+            stroke_opacity=0.9,
+        ),
+        is_static=True,
+        s3_url="https://ontario-environmental-data.s3.us-east-1.amazonaws.com/datasets/williams_treaty/community_wellbeing.geojson",
+        output_path=Path("data/datasets/williams_treaty/community_wellbeing.geojson"),
+        output_format="geojson",
+        min_records=1,
+    ),
+
+    "williams_treaty_water_advisories": DatasetDefinition(
+        id="williams_treaty_water_advisories",
+        name="Drinking Water Advisories (Williams Treaty)",
+        description=(
+            "Drinking water advisories affecting Williams Treaty First Nations "
+            "communities. Tracks current and historical boil water and do-not-consume "
+            "advisories. Critical data for understanding water security and "
+            "infrastructure needs in treaty communities."
+        ),
+        category="community",
+        scope="williams_treaty",
+        parent_dataset="water_advisories_data",
+        style=DatasetStyle(
+            geometry_type="point",
+            fill_color=FEATURE_COLORS["water_advisory"],
+            stroke_color="#8B0000",
+            fill_opacity=0.95,
+            stroke_width=2.5,
+            point_radius=10,
+            icon="alert",
+            legend_label="Water Advisory (Williams Treaty)",
+        ),
+        is_static=True,
+        s3_url="https://ontario-environmental-data.s3.us-east-1.amazonaws.com/datasets/williams_treaty/water_advisories.geojson",
+        output_path=Path("data/datasets/williams_treaty/water_advisories.geojson"),
+        output_format="geojson",
+        min_records=1,
+    ),
+
+    "williams_treaty_infrastructure_projects": DatasetDefinition(
+        id="williams_treaty_infrastructure_projects",
+        name="Infrastructure Projects (Williams Treaty)",
+        description=(
+            "Federal infrastructure investments in Williams Treaty First Nations "
+            "communities. Includes water treatment, housing, education, and other "
+            "capital projects funded through Indigenous Services Canada. Tracks "
+            "progress on closing infrastructure gaps."
+        ),
+        category="community",
+        scope="williams_treaty",
+        parent_dataset="infrastructure_projects",
+        style=DatasetStyle(
+            geometry_type="point",
+            fill_color=FEATURE_COLORS["infrastructure_project"],
+            stroke_color="#8B6914",
+            fill_opacity=0.95,
+            stroke_width=2,
+            point_radius=7,
+            icon="square",
+        ),
+        is_static=True,
+        s3_url="https://ontario-environmental-data.s3.us-east-1.amazonaws.com/datasets/williams_treaty/infrastructure_projects.geojson",
+        output_path=Path("data/datasets/williams_treaty/infrastructure_projects.geojson"),
+        output_format="geojson",
+        min_records=1,
+    ),
 }
 
 
