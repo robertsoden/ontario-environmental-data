@@ -7,6 +7,7 @@ from ontario_data.sources.community import (
     InfrastructureClient,
 )
 from ontario_data.sources.fire import CWFISClient
+from ontario_data.sources.health import PublicHealthClient
 from ontario_data.sources.indigenous import (
     StatisticsCanadaWFSClient,
     WaterAdvisoriesClient,
@@ -25,6 +26,7 @@ __all__ = [
     "CWFISClient",
     "InfrastructureClient",
     "OntarioGeoHubClient",
+    "PublicHealthClient",
     "SatelliteDataClient",
     "StatisticsCanadaWFSClient",
     "WaterAdvisoriesClient",

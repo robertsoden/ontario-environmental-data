@@ -34,6 +34,7 @@ from ontario_data.models.biodiversity import BiodiversityObservation
 # Data models
 from ontario_data.models.community import CommunityWellBeing, InfrastructureProject
 from ontario_data.models.fire import FirePerimeter
+from ontario_data.models.health import HealthIndicator, PHUHealthProfile, PublicHealthUnit
 from ontario_data.models.indigenous import ReserveBoundary, WaterAdvisory
 from ontario_data.models.protected_areas import ProtectedArea
 
@@ -54,6 +55,9 @@ from ontario_data.sources.community import (
 
 # Fire data clients
 from ontario_data.sources.fire import CWFISClient
+
+# Health data clients
+from ontario_data.sources.health import PublicHealthClient
 
 # Indigenous data clients
 from ontario_data.sources.indigenous import (
@@ -103,6 +107,8 @@ __all__ = [
     "InfrastructureClient",
     # Fire data clients
     "CWFISClient",
+    # Health data clients
+    "PublicHealthClient",
     # Indigenous data clients
     "StatisticsCanadaWFSClient",
     "WaterAdvisoriesClient",
@@ -114,8 +120,11 @@ __all__ = [
     "BiodiversityObservation",
     "CommunityWellBeing",
     "FirePerimeter",
+    "HealthIndicator",
     "InfrastructureProject",
+    "PHUHealthProfile",
     "ProtectedArea",
+    "PublicHealthUnit",
     "ReserveBoundary",
     "WaterAdvisory",
     # Utilities

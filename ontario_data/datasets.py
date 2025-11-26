@@ -26,6 +26,7 @@ from ontario_data import (
     INaturalistClient,
     OntarioBoundariesClient,
     OntarioGeoHubClient,
+    PublicHealthClient,
     StatisticsCanadaWFSClient,
 )
 
@@ -55,6 +56,7 @@ CATEGORY_COLORS = {
     "environmental": "#2E8B57",        # Sea green for environmental features
     "infrastructure": "#CD853F",       # Peru (tan) for infrastructure
     "community": "#FF8C00",            # Dark orange for community data
+    "health": "#20B2AA",               # Light sea green for health data
     "organizations": "#6495ED",        # Cornflower blue for organizations
 }
 
@@ -98,6 +100,10 @@ FEATURE_COLORS = {
     "community_point": "#FF8C00",
     "water_advisory": "#DC143C",
     "infrastructure_project": "#FFD700",
+
+    # Health
+    "phu_boundary": "#20B2AA",
+    "health_indicator": "#008B8B",
 
     # Organizations
     "organization": "#6495ED",
@@ -448,6 +454,33 @@ async def _collect_community_wellbeing() -> Dict[str, Any]:
         "status": "success",
         "count": len(cwb_gdf),
         "average_score": float(avg_score) if avg_score else None,
+        "file": str(output_file),
+    }
+
+
+# -----------------------------------------------------------------------------
+# Public Health Unit Boundaries
+# -----------------------------------------------------------------------------
+async def _collect_phu_boundaries() -> Dict[str, Any]:
+    """Collect Ontario Public Health Unit boundaries."""
+    print("\n🏥 Fetching Public Health Unit boundaries...")
+
+    client = PublicHealthClient()
+    phu_gdf = await client.get_phu_boundaries()
+
+    if phu_gdf.empty:
+        return {"status": "no_data"}
+
+    output_file = OUTPUT_DIR / "health" / "phu_boundaries.geojson"
+    output_file.parent.mkdir(parents=True, exist_ok=True)
+    phu_gdf.to_file(output_file, driver="GeoJSON")
+
+    print(f"✅ Saved {len(phu_gdf)} Public Health Unit boundaries")
+    print(f"   File: {output_file}")
+
+    return {
+        "status": "success",
+        "count": len(phu_gdf),
         "file": str(output_file),
     }
 
@@ -1470,6 +1503,65 @@ DATASETS: Dict[str, DatasetDefinition] = {
         output_path=Path("data/datasets/community/federal_infrastructure.geojson"),
         output_format="geojson",
         min_records=1,
+    ),
+
+    # =========================================================================
+    # HEALTH - Public health boundaries and indicators
+    # =========================================================================
+
+    "phu_boundaries": DatasetDefinition(
+        id="phu_boundaries",
+        name="Public Health Unit Boundaries",
+        description=(
+            "Boundaries of Ontario's 34 Public Health Units (PHUs). PHUs are "
+            "responsible for delivering public health programs and services in their "
+            "geographic areas. Source: Ontario GeoHub / Ministry of Health."
+        ),
+        category="health",
+        scope="ontario",
+        style=DatasetStyle(
+            geometry_type="polygon",
+            fill_color="#20B2AA",  # Light sea green for health
+            stroke_color="#008B8B",  # Dark cyan
+            fill_opacity=0.2,
+            stroke_width=2,
+            stroke_opacity=0.8,
+        ),
+        collect_fn=_collect_phu_boundaries,
+        is_static=True,
+        s3_url="https://ontario-environmental-data.s3.us-east-1.amazonaws.com/datasets/health/phu_boundaries.geojson",
+        output_path=Path("data/processed/health/phu_boundaries.geojson"),
+        output_format="geojson",
+        min_records=30,  # Should have ~34 PHUs
+        required_fields=["name"],
+    ),
+
+    "health_indicators": DatasetDefinition(
+        id="health_indicators",
+        name="Public Health Indicators",
+        description=(
+            "Health indicators by Public Health Unit including chronic disease "
+            "prevalence (diabetes, hypertension), mental health metrics, mortality "
+            "rates, and access to care. Source: Ontario Community Health Profiles "
+            "Partnership (OCHPP). Requires manual data download from OCHPP website."
+        ),
+        category="health",
+        scope="ontario",
+        style=DatasetStyle(
+            geometry_type="polygon",
+            fill_color="#20B2AA",
+            stroke_color="#008B8B",
+            fill_opacity=0.4,
+            stroke_width=2,
+            stroke_opacity=0.8,
+        ),
+        # No collect_fn - requires manual Excel download from OCHPP
+        is_static=True,
+        s3_url="https://ontario-environmental-data.s3.us-east-1.amazonaws.com/datasets/health/health_indicators.geojson",
+        output_path=Path("data/processed/health/health_indicators.geojson"),
+        output_format="geojson",
+        min_records=30,
+        required_fields=["name"],
     ),
 
     # =========================================================================
