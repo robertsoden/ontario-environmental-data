@@ -41,10 +41,10 @@ S3_BUCKET = "ontario-environmental-data"
 
 # Datasets to upload
 DATASETS = {
-    "ndvi_2024": {
-        "s3_key": "datasets/satellite/ndvi/ontario_ndvi_2024_250m.tif",
-        "tileset_name": "ndvi_2024",
-        "description": "NDVI 2024 - MODIS 250m vegetation index"
+    "ndvi_2023": {
+        "s3_key": "datasets/satellite/ndvi/ontario_ndvi_2023_max_8bit.tif",
+        "tileset_name": "ndvi_2023",
+        "description": "NDVI 2023 - Max annual vegetation index (8-bit)"
     },
     "landcover_2020": {
         "s3_key": "datasets/satellite/landcover/ontario_landcover_2020.tif",

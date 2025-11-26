@@ -1917,20 +1917,39 @@ DATASETS: Dict[str, DatasetDefinition] = {
     # SATELLITE DATA - Raster datasets (NDVI, Land Cover)
     # =========================================================================
 
-    "ndvi_2024": DatasetDefinition(
-        id="ndvi_2024",
-        name="NDVI 2024 (Vegetation Index)",
+    "ndvi_2023": DatasetDefinition(
+        id="ndvi_2023",
+        name="NDVI 2023 (Vegetation Index)",
         description=(
-            "Normalized Difference Vegetation Index (NDVI) for 2024 from MODIS 250m "
-            "resolution satellite imagery. Measures vegetation health and density across "
-            "Ontario. Served as Cloud Optimized GeoTIFF (COG) for efficient web access."
+            "Peak annual Normalized Difference Vegetation Index (NDVI) for 2023 from MODIS "
+            "250m satellite imagery. Shows maximum vegetation health across all seasons. "
+            "8-bit optimized for web display. Also available as Mapbox tileset."
         ),
         category="environmental",
         scope="ontario",
         style=None,  # Raster styling handled by map renderer
         is_static=True,
-        s3_url="https://ontario-environmental-data.s3.amazonaws.com/datasets/satellite/ndvi/ontario_ndvi_2024_250m.tif",
-        output_path=Path("datasets/satellite/ndvi/ontario_ndvi_2024_250m.tif"),
+        s3_url="https://ontario-environmental-data.s3.us-east-1.amazonaws.com/datasets/satellite/ndvi/ontario_ndvi_2023_max_8bit.tif",
+        output_path=Path("datasets/satellite/ndvi/ontario_ndvi_2023_max_8bit.tif"),
+        output_format="tif",
+        min_records=1,
+        enabled=True,
+    ),
+
+    "ndvi_2023_timeseries": DatasetDefinition(
+        id="ndvi_2023_timeseries",
+        name="NDVI 2023 Time Series (23 bands)",
+        description=(
+            "Full MODIS NDVI time series for 2023 - 23 bands representing 16-day composites "
+            "throughout the year. 250m resolution, UInt16 format. Use for seasonal vegetation "
+            "analysis and phenology studies. Large file (~935 MB)."
+        ),
+        category="environmental",
+        scope="ontario",
+        style=None,
+        is_static=True,
+        s3_url="https://ontario-environmental-data.s3.us-east-1.amazonaws.com/datasets/satellite/ndvi/ontario_ndvi_2023_250m.tif",
+        output_path=Path("datasets/satellite/ndvi/ontario_ndvi_2023_250m.tif"),
         output_format="tif",
         min_records=1,
         enabled=True,
@@ -1949,7 +1968,7 @@ DATASETS: Dict[str, DatasetDefinition] = {
         scope="ontario",
         style=None,  # Raster styling handled by map renderer
         is_static=True,
-        s3_url="https://ontario-environmental-data.s3.amazonaws.com/datasets/satellite/landcover/ontario_landcover_2020.tif",
+        s3_url="https://ontario-environmental-data.s3.us-east-1.amazonaws.com/datasets/satellite/landcover/ontario_landcover_2020.tif",
         output_path=Path("datasets/satellite/landcover/ontario_landcover_2020.tif"),
         output_format="tif",
         min_records=1,
@@ -1969,7 +1988,7 @@ DATASETS: Dict[str, DatasetDefinition] = {
         scope="ontario",
         style=None,  # Raster styling handled by map renderer
         is_static=True,
-        s3_url="https://ontario-environmental-data.s3.amazonaws.com/datasets/satellite/landcover/ontario_landcover_2015.tif",
+        s3_url="https://ontario-environmental-data.s3.us-east-1.amazonaws.com/datasets/satellite/landcover/ontario_landcover_2015.tif",
         output_path=Path("datasets/satellite/landcover/ontario_landcover_2015.tif"),
         output_format="tif",
         min_records=1,
@@ -1989,7 +2008,7 @@ DATASETS: Dict[str, DatasetDefinition] = {
         scope="ontario",
         style=None,  # Raster styling handled by map renderer
         is_static=True,
-        s3_url="https://ontario-environmental-data.s3.amazonaws.com/datasets/satellite/landcover/ontario_landcover_2010.tif",
+        s3_url="https://ontario-environmental-data.s3.us-east-1.amazonaws.com/datasets/satellite/landcover/ontario_landcover_2010.tif",
         output_path=Path("datasets/satellite/landcover/ontario_landcover_2010.tif"),
         output_format="tif",
         min_records=1,
