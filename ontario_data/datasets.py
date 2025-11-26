@@ -24,6 +24,7 @@ from ontario_data import (
     CWFISClient,
     EBirdClient,
     INaturalistClient,
+    NPRIClient,
     OntarioBoundariesClient,
     OntarioGeoHubClient,
     PublicHealthClient,
@@ -58,6 +59,7 @@ CATEGORY_COLORS = {
     "community": "#FF8C00",            # Dark orange for community data
     "health": "#20B2AA",               # Light sea green for health data
     "organizations": "#6495ED",        # Cornflower blue for organizations
+    "environmental_justice": "#DC143C", # Crimson for environmental justice
 }
 
 # Specific feature colors for fine-grained styling
@@ -107,6 +109,11 @@ FEATURE_COLORS = {
 
     # Organizations
     "organization": "#6495ED",
+
+    # Environmental Justice
+    "npri_facility": "#DC143C",
+    "contaminated_site": "#8B0000",
+    "air_quality_station": "#FF8C00",
 }
 
 # Default style values
@@ -1565,17 +1572,53 @@ DATASETS: Dict[str, DatasetDefinition] = {
     ),
 
     # =========================================================================
+    # ENVIRONMENTAL JUSTICE - Pollution and contamination data
+    # =========================================================================
+
+    "npri_facilities": DatasetDefinition(
+        id="npri_facilities",
+        name="NPRI Polluting Facilities",
+        description=(
+            "National Pollutant Release Inventory (NPRI) facility locations in Ontario. "
+            "Includes industrial facilities that report releases of pollutants to air, "
+            "water, and land. Data includes company name, facility name, location, "
+            "industry sector (NAICS code), and most recent reporting year. Source: "
+            "Environment and Climate Change Canada."
+        ),
+        category="environmental_justice",
+        scope="ontario",
+        style=DatasetStyle(
+            geometry_type="point",
+            fill_color=FEATURE_COLORS["npri_facility"],
+            stroke_color="#FFFFFF",
+            fill_opacity=0.85,
+            stroke_width=1.5,
+            point_radius=6,
+            icon="circle",
+            legend_label="NPRI Polluting Facility",
+        ),
+        is_static=True,
+        s3_url="https://ontario-environmental-data.s3.us-east-1.amazonaws.com/datasets/environmental_justice/npri_facilities.geojson",
+        local_path=Path("data/processed/environmental_justice/npri_facilities.geojson"),
+        output_path=Path("data/processed/environmental_justice/npri_facilities.geojson"),
+        output_format="geojson",
+        min_records=100,
+        required_fields=["facility_name", "company_name"],
+        enabled=True,
+    ),
+
+    # =========================================================================
     # ORGANIZATIONS - Environmental groups and institutions
     # =========================================================================
 
     "environmental_organizations": DatasetDefinition(
         id="environmental_organizations",
-        name="Environmental Organizations",
+        name="Ontario Registered Charities",
         description=(
-            "Registered environmental charities and non-profit organizations in "
-            "Ontario. Includes organization name, type (conservation, education, "
-            "advocacy), location, and contact information. Source: CRA Charities "
-            "Directorate with environmental focus filter."
+            "Ontario registered charities filtered to focus on Indigenous or "
+            "environmental topics within Williams Treaty territory. Includes "
+            "organization name, type (conservation, education, advocacy), location, "
+            "and contact information. Source: CRA Charities Directorate."
         ),
         category="organizations",
         scope="ontario",

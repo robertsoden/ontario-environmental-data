@@ -242,7 +242,7 @@ s3://ontario-environmental-data/datasets/{category}/{filename}.geojson
 - `environmental` - Environmental features (ecoregions, fire perimeters, contours)
 - `hydrology` - Water features (watersheds, wetlands, waterbodies, dams)
 - `infrastructure` - Built features (trails, trail access points)
-- `organizations` - Organizations (environmental charities)
+- `organizations` - Organizations (Ontario registered charities focused on Indigenous/environmental topics)
 - `protected_areas` - Protected lands (parks, conservation authorities)
 - `satellite` - Raster data (NDVI, land cover)
 
